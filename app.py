@@ -17,7 +17,7 @@ from datetime import datetime
 file_path = 'bookkeeping.csv'
 transactions = []
 
-# --- Load CSV file data ---
+
 try:
     with open(file_path, newline='') as csvfile:
         reader = csv.DictReader(csvfile)
@@ -97,3 +97,13 @@ while True:
 
     else:
         print("Invalid choice, please try again.")
+
+
+# add; update transaction instead delete
+# monthly expenses (electricity, water, rent)
+# used built in function
+# view total montly expenses
+# seprate the save and exit
+# add payroll
+# type of purchased
+# title ; ---------- BSCS 1A BOOKKEEPING SYSTEM -----------
