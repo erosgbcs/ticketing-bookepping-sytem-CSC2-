@@ -4,7 +4,7 @@ from datetime import datetime
 FILE_PATH = "bookkeeping.csv"
 
 
-# ---------- Utility Functions ----------
+# ----------Utility Functions ----------
 def load_transactions():
     """Load transactions from CSV file."""
     transactions = []
