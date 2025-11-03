@@ -1,4 +1,4 @@
-Date,Description,Type,Amount
+Date,Description,Type,Category,Amount
 20200 0202,papel,Expense,20.0
 2020 0202,bumili,Income,1000.0
 2025-23-23,omelet,Expense,35.0
@@ -13,4 +13,5 @@ Date,Description,Type,Amount
 2025-06-18,Soft Drinks 6pieces,Expense,Staff Refreshments,90
 2025-06-26,Snacks Pack 5pieces,Expense,Staff Refreshments,95
 2025-06-28,Energy Drink 4pcs,Expense,Staff Refreshments,160
+
 
