@@ -2,4 +2,14 @@ Date,Description,Type,Amount
 20200 0202,papel,Expense,20.0
 2020 0202,bumili,Income,1000.0
 2025-23-23,omelet,Expense,35.0
-20230 ,tae,Income,2000.0
+20230,tae,Income,2000.0
+2025-06-09,Notebooks 12pieces,Expense,Supplies,180
+2025-06-10,Pens 25pieces, Expense, Office Supplies,95
+2025-06-11,Pencil 25pieces,Expense, Maintenance,80
+2025-06-12,Paper Bags 100pieces, Expense, Packaging,120
+2025-06-13, Printer Ink 2pieces, Expense,Office Supplies,360
+2025-06-14,Light Bulbs 6pieces,Expense, Utilities,210
+2025-06-15,Bottled Water 12pieces, Expense,Staff Refreshments,75
+2025-06-18,Soft Drinks 6pieces,Expense, Staff Refreshments,90
+2025-06-26,Snacks Pack 5pieces,Expense, Staff Refreshments,95
+2025-06-28,Energy Drink 4pcs,Expense, Staff Refreshments,160
