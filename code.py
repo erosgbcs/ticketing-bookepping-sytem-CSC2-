@@ -3,7 +3,7 @@ from datetime import datetime
 import os
 
 FILE_PATH = "bookkeeping.csv"
-FIELDNAMES = ['Date', 'Description', 'Type', 'Category', 'Amount']
+FIELDNAMES = ['Date','Description', 'Type','Category','Amount']
 
 
 # ---------- CSV FILE HANDLING ----------
