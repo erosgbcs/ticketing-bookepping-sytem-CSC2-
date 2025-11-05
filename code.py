@@ -1,90 +1,215 @@
 import csv
+import os
 
-rows, cols = 5, 5
-seats = [["O" for _ in range(cols)] for _ in range(rows)]  # O = Open, X = Taken
+FILE_PATH = "bookings.csv"
 
-def display_seats():
-    print("\nSeat Layout (O = Available, X = Booked)")
-    print("   " + " ".join([str(c+1) for c in range(cols)]))
-    for r in range(rows):
-        print(f"R{r+1}  " + " ".join(seats[r]))
-    print()
+# ============================================================
+# 🗂️ CSV FILE HANDLING
+# ============================================================
+def ensure_csv_file():
+    """Ensure the bookings.csv file exists with correct headers and default seats."""
+    if not os.path.exists(FILE_PATH):
+        print("⚙️ Creating new bookings.csv file...")
+        seats = []
+        for row in ["A", "B", "C", "D", "E"]:
+            for num in range(1, 5):
+                seats.append({
+                    'Seat': f'{row}{num}',
+                    'Status': 'Available',
+                    'Name': ''
+                })
+        with open(FILE_PATH, 'w', newline='') as file:
+            writer = csv.DictWriter(file, fieldnames=['Seat', 'Status', 'Name'])
+            writer.writeheader()
+            writer.writerows(seats)
 
+def load_seats():
+    """Load seat data, recreate file if empty or corrupted."""
+    if not os.path.exists(FILE_PATH):
+        ensure_csv_file()
+    with open(FILE_PATH, 'r') as file:
+        reader = csv.DictReader(file)
+        seats = list(reader)
+        # If CSV is empty or missing seat data, recreate it
+        if not seats:
+            ensure_csv_file()
+            with open(FILE_PATH, 'r') as f:
+                seats = list(csv.DictReader(f))
+        return seats
+
+def save_seats(seats):
+    """Save updated seat info back to the CSV."""
+    with open(FILE_PATH, 'w', newline='') as file:
+        writer = csv.DictWriter(file, fieldnames=['Seat', 'Status', 'Name'])
+        writer.writeheader()
+        writer.writerows(seats)
+
+# ============================================================
+# 🎟️ VIEW SEAT LAYOUT
+# ============================================================
+def view_seat_layout():
+    seats = load_seats()
+    print("\n--- SEAT LAYOUT ---")
+    count = 0
+    for seat in seats:
+        # Determine symbol for seat status
+        status = seat['Status'].strip().capitalize()
+        if status == 'Available':
+            icon = "O"
+        elif status == 'Taken':
+            icon = "X"
+        elif status == 'Unavailable':
+            icon = "-"
+        else:
+            icon = "?"
+        print(f"{seat['Seat']}({icon})", end="\t")
+        count += 1
+        if count % 4 == 0:
+            print()
+    print("\nLegend: O = Available, X = Taken, - = Unavailable")
+    input("\nPress Enter to continue...")
+
+# ============================================================
+# 🪑 RESERVE SEAT
+# ============================================================
 def reserve_seat():
-    try:
-        display_seats()
-        r = int(input("Enter Row (1-10): ")) - 1
-        c = int(input("Enter Seat (1-10): ")) - 1
-        name = input("Enter Passenger Name: ").strip()
+    seats = load_seats()
+    print("\n--- RESERVE SEAT ---")
+    seat_no = input("Enter seat number to reserve: ").upper()
+    found = False
+    for seat in seats:
+        if seat['Seat'] == seat_no:
+            found = True
+            if seat['Status'] == 'Available':
+                name = input("Enter passenger name: ")
+                seat['Status'] = 'Taken'
+                seat['Name'] = name
+                save_seats(seats)
+                print(f"✅ Seat {seat_no} reserved for {name}.")
+            else:
+                print("❌ Seat already taken or unavailable.")
+            break
+    if not found:
+        print("⚠️ Seat not found.")
+    input("\nPress Enter to continue...")
 
-        if seats[r][c] == "X":
-            print("❌ Seat already booked. Please choose another one.")
-        else:
-            seats[r][c] = "X"
-            print(f"✅ Seat R{r+1}C{c+1} successfully reserved for {name}.")
+# ============================================================
+# ✏️ UPDATE SEAT INFO
+# ============================================================
+def update_seat():
+    seats = load_seats()
+    print("\n--- UPDATE SEAT ---")
+    seat_no = input("Enter seat number to update: ").upper()
+    for seat in seats:
+        if seat['Seat'] == seat_no:
+            if seat['Status'] == 'Taken':
+                print(f"Current passenger: {seat['Name']}")
+                new_name = input("Enter new name: ")
+                seat['Name'] = new_name
+                save_seats(seats)
+                print(f"✅ Seat {seat_no} updated to {new_name}.")
+            else:
+                print("❌ Seat is not currently reserved.")
+            break
+    else:
+        print("⚠️ Seat not found.")
+    input("\nPress Enter to continue...")
 
-            # Save to CSV file
-            with open("bookings.csv", mode="a", newline="") as file:
-                writer = csv.writer(file)
-                writer.writerow([name, f"R{r+1}", f"C{c+1}"])
-    except (IndexError, ValueError):
-        print("⚠ Invalid input. Please try again.")
+# ============================================================
+# ❌ CANCEL RESERVATION
+# ============================================================
+def cancel_seat():
+    seats = load_seats()
+    print("\n--- CANCEL RESERVATION ---")
+    seat_no = input("Enter seat number to cancel: ").upper()
+    for seat in seats:
+        if seat['Seat'] == seat_no:
+            if seat['Status'] == 'Taken':
+                seat['Status'] = 'Available'
+                seat['Name'] = ''
+                save_seats(seats)
+                print(f"✅ Seat {seat_no} is now available.")
+            else:
+                print("❌ Seat is not reserved.")
+            break
+    else:
+        print("⚠️ Seat not found.")
+    input("\nPress Enter to continue...")
 
-def cancel_reservation():
-    try:
-        display_seats()
-        r = int(input("Enter Row (1-5) to cancel: ")) - 1
-        c = int(input("Enter Seat (1-5) to cancel: ")) - 1
+# ============================================================
+# 🗃️ ARCHIVE / STATUS UPDATE
+# ============================================================
+def archive_or_status_update():
+    seats = load_seats()
+    print("\n--- ARCHIVE / STATUS UPDATE ---")
+    seat_no = input("Enter seat number: ").upper()
+    for seat in seats:
+        if seat['Seat'] == seat_no:
+            print(f"Current status: {seat['Status']}")
+            new_status = input("Enter new status (Available/Taken/Archived): ").capitalize()
+            if new_status in ['Available', 'Taken', 'Archived']:
+                seat['Status'] = new_status
+                if new_status != 'Taken':
+                    seat['Name'] = ''
+                save_seats(seats)
+                print(f"✅ Seat {seat_no} updated to {new_status}.")
+            else:
+                print("⚠️ Invalid status. Please type Available, Taken, or Archived.")
+            break
+    else:
+        print("⚠️ Seat not found.")
+    input("\nPress Enter to continue...")
 
-        if seats[r][c] == "O":
-            print("⚠ That seat is not currently booked.")
-        else:
-            seats[r][c] = "O"
-            print(f"✅ Seat R{r+1}C{c+1} booking cancelled.")
-    except (IndexError, ValueError):
-        print("⚠ Invalid input. Please try again.")
-
+# ============================================================
+# 📋 GENERATE REPORT
+# ============================================================
 def generate_report():
-    try:
-        with open("bookings.csv", newline="") as file:
-            reader = csv.reader(file)
-            print("\n📄 Booking Report:")
-            print("{:<20} {:<10} {:<10}".format("Name", "Row", "Column"))
-            print("-" * 40)
-            for row in reader:
-                print("{:<20} {:<10} {:<10}".format(row[0], row[1], row[2]))
-    except FileNotFoundError:
-        print("⚠ No bookings found yet.")
+    seats = load_seats()
+    print("\n--- BOOKING REPORT ---")
+    print(f"{'Seat':<5} {'Status':<10} {'Passenger':<15}")
+    print("-" * 35)
+    for seat in seats:
+        print(f"{seat['Seat']:<5} {seat['Status']:<10} {seat['Name']:<15}")
+    print("-" * 35)
+    input("\nPress Enter to continue...")
 
+# ============================================================
+# 🏠 MAIN MENU
+# ============================================================
 def main():
-    # Create header for CSV if not exist
-    with open("bookings.csv", mode="w", newline="") as file:
-        writer = csv.writer(file)
-        writer.writerow(["Name", "Row", "Column"])
-
+    ensure_csv_file()
     while True:
-        print("\n🎟 MINI TICKETING / BOOKING SYSTEM")
-        print("1. View Seats")
+        print("\n===== MINI TICKETING / BOOKING SYSTEM =====")
+        print("1. View Seat Layout")
         print("2. Reserve Seat")
-        print("3. Cancel Reservation")
-        print("4. Generate Booking Report")
-        print("5. Exit")
+        print("3. Update Seat Info")
+        print("4. Cancel Reservation")
+        print("5. Archive / Status Update")
+        print("6. Generate Booking Report")
+        print("7. Exit")
 
-        choice = input("Enter your choice: ")
+        choice = input("Enter choice: ")
 
-        if choice == "1":
-            display_seats()
-        elif choice == "2":
+        if choice == '1':
+            view_seat_layout()
+        elif choice == '2':
             reserve_seat()
-        elif choice == "3":
-            cancel_reservation()
-        elif choice == "4":
+        elif choice == '3':
+            update_seat()
+        elif choice == '4':
+            cancel_seat()
+        elif choice == '5':
+            archive_or_status_update()
+        elif choice == '6':
             generate_report()
-        elif choice == "5":
-            print("👋 Thank you for using the system!")
+        elif choice == '7':
+            print("👋 Exiting system. Thank you!")
             break
         else:
-            print("⚠ Invalid choice. Please try again.")
+            print("⚠️ Invalid option. Try again.")
 
+# ============================================================
+# 🚀 RUN PROGRAM
+# ============================================================
 if __name__ == "__main__":
     main()
