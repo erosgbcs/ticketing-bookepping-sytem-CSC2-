@@ -150,8 +150,8 @@ def cancel_reservation(service_key):
         return
     info = seats[seat_id]
     print(f"Cancel booking for {info['Name']} on {seat_id}?")
-    if input("Type YES to confirm: ").strip().upper() != "YES":
-        print("Cancelled.")
+    if input("Type Y to confirm: ").strip().upper() != "Y":
+        print("Reservation preserved.")
         return
     seats[seat_id] = {"Status": "Available", "Name": "", "Timestamp": now_str()}
     save_seats(service_key, seats)
