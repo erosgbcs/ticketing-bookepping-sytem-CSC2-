@@ -236,7 +236,7 @@ def service_menu(service_key, service_name):
         print("2) Reserve seat")
         print("3) Cancel reservation")
         print("4) Update seat booking")
-        print("5) View CSV report")
+        print("5) View bookking report")
         print("6) Admin: mark seat Unavailable / Reset seat")
         print("B) Back to main menu")
         choice = input("Choose option: ").strip().upper()
@@ -263,17 +263,17 @@ def main_menu():
         ensure_csv(k)
     while True:
         print("\n=== Mini Ticketing / Booking System ===")
-        print("C) 🎥  Cinema")
-        print("B) 🚌  Bus")
-        print("A) ✈️   Airplane")
+        print("1) 🎥  Cinema")
+        print("2) 🚌  Bus")
+        print("3) ✈️   Airplane")
         print("X) Exit")
         print("========================================")
         c = input("Service: ").strip().upper()
-        if c == "C":
+        if c == "1":
             service_menu("C", "Cinema")
-        elif c == "B":
+        elif c == "2":
             service_menu("B", "Bus")
-        elif c == "A":
+        elif c == "3":
             service_menu("A", "Airplane")
         elif c == "X":
             print("Goodbye!")

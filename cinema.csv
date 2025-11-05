@@ -1,12 +1,12 @@
 Seat,Status,Name,Timestamp
-1A,Available,,2025-11-05 05:52:23
-1B,Available,,2025-11-05 05:20:14
-1C,Available,,
+1A,Taken,b,2025-11-05 06:09:45
+1B,Taken,b,2025-11-05 06:10:29
+1C,Taken,hdfig,2025-11-05 06:16:38
 1D,Available,,
 1E,Available,,
 1F,Available,,
-2A,Available,,2025-11-05 05:39:08
-2B,Available,,
+2A,Taken,b,2025-11-05 06:09:13
+2B,Taken,gwfifr,2025-11-05 06:14:07
 2C,Available,,
 2D,Available,,
 2E,Available,,
@@ -16,10 +16,10 @@ Seat,Status,Name,Timestamp
 3C,Available,,
 3D,Available,,
 3E,Available,,
-3F,Available,,
+3F,Taken,khfwrf,2025-11-05 06:16:47
 4A,Available,,
 4B,Available,,
-4C,Available,,
+4C,Taken,Althea cutie,2025-11-05 06:07:40
 4D,Available,,
 4E,Available,,
 4F,Available,,
@@ -47,7 +47,7 @@ Seat,Status,Name,Timestamp
 8D,Available,,
 8E,Available,,
 8F,Available,,
-9A,Available,,
+9A,Taken,wfefh,2025-11-05 06:14:23
 9B,Available,,
 9C,Available,,
 9D,Available,,
@@ -58,4 +58,4 @@ Seat,Status,Name,Timestamp
 10C,Available,,
 10D,Available,,
 10E,Available,,
-10F,Available,,
+10F,Taken,wfgu,2025-11-05 06:14:58
