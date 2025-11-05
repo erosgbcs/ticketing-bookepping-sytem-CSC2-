@@ -263,10 +263,11 @@ def main_menu():
         ensure_csv(k)
     while True:
         print("\n=== Mini Ticketing / Booking System ===")
-        print("C) Cinema")
-        print("B) Bus")
-        print("A) Airplane")
+        print("C) 🎥  Cinema")
+        print("B) 🚌  Bus")
+        print("A) ✈️   Airplane")
         print("X) Exit")
+        print("========================================")
         c = input("Service: ").strip().upper()
         if c == "C":
             service_menu("C", "Cinema")
