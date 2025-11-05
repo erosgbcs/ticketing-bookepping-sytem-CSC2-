@@ -1,6 +1,6 @@
 Seat,Status,Name,Timestamp,Notes
-1A,Available,,,
-1B,Available,,,
+1A,Available,,2025-11-05 04:32:39,Cancelled booking for titi at 2025-11-05 04:32:39
+1B,Taken,burat,2025-11-05 04:32:14,
 1C,Available,,,
 1D,Available,,,
 2A,Available,,,
@@ -27,7 +27,7 @@ Seat,Status,Name,Timestamp,Notes
 7B,Available,,,
 7C,Available,,,
 7D,Available,,,
-8A,Available,,,
+8A,Taken,gab,2025-11-05 04:30:05,
 8B,Available,,,
 8C,Available,,,
 8D,Available,,,

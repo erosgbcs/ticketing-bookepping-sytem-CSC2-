@@ -1,5 +1,5 @@
 Seat,Status,Name,Timestamp,Notes
-1A,Available,,,
+1A,Taken,ewu,2025-11-05 04:33:00,
 1B,Available,,,
 1C,Available,,,
 1D,Available,,,
@@ -118,4 +118,4 @@ Seat,Status,Name,Timestamp,Notes
 20C,Available,,,
 20D,Available,,,
 20E,Available,,,
-20F,Available,,,
+20F,Available,,2025-11-05 04:33:38,Cancelled booking for ewf at 2025-11-05 04:33:38

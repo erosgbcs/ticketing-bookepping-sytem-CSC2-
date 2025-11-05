@@ -1,17 +1,12 @@
 #!/usr/bin/env python3
 """
-Mini Ticketing/Booking System
-Supports three services with separate CSVs:
+Mini Ticketing/Booking System (debugged)
  - Cinema  -> cinema.csv
  - Bus     -> bus.csv
  - Airplane-> airplane.csv
 
-Features:
- - View seat layout (O = Available, X = Taken, - = Unavailable)
- - Reserve seat (prevents double-booking)
- - Cancel reservation
- - Export / show CSV report
- - Separate CSV files per service
+Seat ID format: numeric row first then seat letter (e.g. 1A, 12B, 20F)
+Input accepts either A1 or 1A (normalized to 1A).
 """
 
 import csv
@@ -31,21 +26,21 @@ def now_str():
 
 # --- Seat layout definitions ---
 def cinema_layout():
-    # Rows A-F, seats 1-10
-    rows = [chr(ord('A') + i) for i in range(6)]
-    seats_per_row = 10
-    seats = [f"{r}{n}" for r in rows for n in range(1, seats_per_row + 1)]
+    # Cinema: 10 rows (1–10), seats A–F (6 seats per row)
+    rows = range(1, 11)          # rows 1..10
+    seat_letters = ["A", "B", "C", "D", "E", "F"]
+    seats = [f"{r}{s}" for r in rows for s in seat_letters]
     return seats
 
 def bus_layout():
-    # Rows 1-12, seats A-D (typical 2+2 arrangement)
+    # Bus: Rows 1-12, seats A-D (2+2)
     rows = range(1, 13)
     seat_letters = ["A", "B", "C", "D"]
     seats = [f"{r}{s}" for r in rows for s in seat_letters]
     return seats
 
 def airplane_layout():
-    # Rows 1-20, seats A-F (typical single-aisle plane)
+    # Airplane: Rows 1-20, seats A-F (3+3)
     rows = range(1, 21)
     seat_letters = ["A", "B", "C", "D", "E", "F"]
     seats = [f"{r}{s}" for r in rows for s in seat_letters]
@@ -100,66 +95,63 @@ def save_seats(service_key, seats):
                 "Notes": info.get("Notes", "")
             })
 
+# --- Utilities ---
+def normalize_seat_id_input(raw):
+    """Accept A1 or 1A (or mixed), return numeric-first like '1A'.
+       If normalization impossible, returns original uppercased string."""
+    if not raw:
+        return raw
+    s = raw.strip().upper()
+    letters = ''.join(filter(str.isalpha, s))
+    digits = ''.join(filter(str.isdigit, s))
+    if digits and letters:
+        # Return digits+letters (1A)
+        return digits + letters
+    return s
+
 # --- Display ---
 def print_seat_map(service_key, seats):
     layout = LAYOUT_FUNCTIONS[service_key]()
-    # Determine display grouping
-    if service_key == "C":  # cinema: letters rows
-        # Group by row letter
-        rows = {}
-        for seat in layout:
-            row = seat[0]
-            rows.setdefault(row, []).append(seat)
-        print("\n--- SEAT LAYOUT (O=Available, X=Taken, -=Unavailable) ---")
-        for r in sorted(rows.keys()):
-            row_seats = rows[r]
-            line = f"{r} "
-            for s in row_seats:
-                st = seats.get(s, {"Status":"Unavailable"})["Status"]
-                symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
-                # align numbers
-                line += f"{s[1:]:>2}{symbol} "
-            print(line)
-    elif service_key == "B":  # bus: numeric rows
-        print("\n--- SEAT LAYOUT (O=Available, X=Taken, -=Unavailable) ---")
-        # rows 1..n, seat letters A-D
-        layout_sorted = sorted(layout, key=lambda x: (int(''.join(filter(str.isdigit, x))), x))
-        current_row = None
-        for s in layout_sorted:
-            row = ''.join(filter(str.isdigit, s))
-            if row != current_row:
-                if current_row is not None:
-                    print()  # newline between rows
-                print(f"{row:>2} ", end="")
-                current_row = row
-            st = seats.get(s, {"Status":"Unavailable"})["Status"]
-            symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
-            print(f"{s[len(row):]:>1}{symbol} ", end="")
-        print()
-    else:  # airplane
-        print("\n--- SEAT LAYOUT (O=Available, X=Taken, -=Unavailable) ---")
-        layout_sorted = sorted(layout, key=lambda x: (int(''.join(filter(str.isdigit, x))), x))
-        current_row = None
-        for s in layout_sorted:
-            row = ''.join(filter(str.isdigit, s))
-            if row != current_row:
-                if current_row is not None:
-                    print()
-                print(f"{row:>2} ", end="")
-                current_row = row
-            st = seats.get(s, {"Status":"Unavailable"})["Status"]
-            symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
-            print(f"{s[len(row):]:>1}{symbol} ", end="")
-        print()
+    print("\n--- SEAT LAYOUT (O=Available, X=Taken, -=Unavailable) ---")
+
+    # All services printed with numeric-first format: row then letters
+    layout_sorted = sorted(layout, key=lambda x: (int(''.join(filter(str.isdigit, x))), x))
+    current_row = None
+    for s in layout_sorted:
+        row = ''.join(filter(str.isdigit, s))
+        seat_letter = s[len(row):]
+        if row != current_row:
+            if current_row is not None:
+                print()  # newline between rows
+            # row label
+            print(f"{row:>2} ", end="")
+            current_row = row
+
+        st = seats.get(s, {"Status": "Unavailable"})["Status"]
+        symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
+        # print seat letter + symbol
+        print(f"{seat_letter}{symbol} ", end="")
+
+        # Add aisle spacing where applicable:
+        if service_key == "B" and seat_letter == "B":   # bus: after B (2+2)
+            print("  ", end="")
+        if service_key == "A" and seat_letter == "C":   # airplane: after C (3+3)
+            print("  ", end="")
+        # cinema has no special aisle by default
+    print()  # final newline
 
 # --- Actions ---
 def reserve_seat(service_key):
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
-    seat_id = input("Enter seat ID to reserve (e.g. A5 or 12B): ").strip().upper()
+
+    raw = input("Enter seat ID to reserve (e.g. 1A or A1): ")
+    seat_id = normalize_seat_id_input(raw)
+
     if seat_id not in seats:
         print("⚠️ Invalid seat ID.")
         return
+
     info = seats[seat_id]
     if info["Status"] == "Taken":
         print(f"⚠️ Seat {seat_id} is already taken by '{info['Name']}' (since {info['Timestamp']}).")
@@ -167,11 +159,13 @@ def reserve_seat(service_key):
     if info["Status"] == "Unavailable":
         print(f"⚠️ Seat {seat_id} is unavailable.")
         return
+
     name = input("Enter passenger/name for the booking: ").strip()
     if not name:
         print("⚠️ Name is required to reserve.")
         return
     notes = input("Notes (optional): ").strip()
+
     seats[seat_id] = {
         "Status": "Taken",
         "Name": name,
@@ -184,7 +178,9 @@ def reserve_seat(service_key):
 def cancel_reservation(service_key):
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
-    seat_id = input("Enter seat ID to cancel (e.g. A5 or 12B): ").strip().upper()
+    raw = input("Enter seat ID to cancel (e.g. 1A or A1): ")
+    seat_id = normalize_seat_id_input(raw)
+
     if seat_id not in seats:
         print("⚠️ Invalid seat ID.")
         return
@@ -197,7 +193,6 @@ def cancel_reservation(service_key):
     if confirm != "YES":
         print("Cancellation aborted.")
         return
-    # Clear booking (set to Available); keep a note in Notes
     seats[seat_id] = {
         "Status": "Available",
         "Name": "",
@@ -214,13 +209,11 @@ def view_report(service_key):
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
         rows = list(reader)
-        # Print summary: taken count, available count
         taken = sum(1 for r in rows if r["Status"] == "Taken")
         avail = sum(1 for r in rows if r["Status"] == "Available")
         unavailable = sum(1 for r in rows if r["Status"] == "Unavailable")
         print(f"Total seats: {len(rows)} | Taken: {taken} | Available: {avail} | Unavailable: {unavailable}")
         print("-" * 60)
-        # show first 200 rows in a readable format
         for r in rows:
             seat = r["Seat"]
             st = r["Status"]
@@ -232,12 +225,12 @@ def view_report(service_key):
     print(f"CSV file path: {os.path.abspath(path)}")
 
 def set_unavailable(service_key):
-    # small utility to mark seats unavailable (admin)
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
-    seat_id = input("Enter seat ID to mark Unavailable (or type CLEAR to clear notes on a seat): ").strip().upper()
-    if seat_id == "CLEAR":
-        sid = input("Enter seat ID to clear notes/status reset: ").strip().upper()
+    raw = input("Enter seat ID to mark Unavailable (or type CLEAR to clear notes on a seat): ").strip()
+    if raw.upper() == "CLEAR":
+        sid_raw = input("Enter seat ID to clear notes/status reset: ").strip()
+        sid = normalize_seat_id_input(sid_raw)
         if sid not in seats:
             print("Invalid seat ID.")
             return
@@ -245,6 +238,8 @@ def set_unavailable(service_key):
         save_seats(service_key, seats)
         print(f"✅ Reset {sid} to Available.")
         return
+
+    seat_id = normalize_seat_id_input(raw)
     if seat_id not in seats:
         print("Invalid seat ID.")
         return
