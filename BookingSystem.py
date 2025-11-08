@@ -102,7 +102,7 @@ def normalize_seat_id_input(raw):
 # =========================
 def print_seat_map(service_key, seats):
     layout = LAYOUT_FUNCTIONS[service_key]()
-    print("\n--- SEAT LAYOUT (O=Available, X=Taken, -=Unavailable) ---")
+    print("\n--- SEAT LAYOUT (🟩=Available, 🟥=Taken, ⬛=Unavailable) ---")
     layout_sorted = sorted(layout, key=lambda x: (int(''.join(filter(str.isdigit, x))), x))
     current_row = None
     for s in layout_sorted:
