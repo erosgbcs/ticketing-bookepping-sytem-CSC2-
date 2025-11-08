@@ -114,7 +114,7 @@ def print_seat_map(service_key, seats):
             print(f"{row:>2} ", end="")
             current_row = row
         st = seats.get(s, {"Status": "Unavailable"})["Status"]
-        symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
+        symbol = "🟩" if st == "Available" else ("🟥" if st == "Taken" else "⬛")
         print(f"{seat_letter}{symbol} ", end="")
         if service_key == "B" and seat_letter == "B":
             print("  ", end="")
