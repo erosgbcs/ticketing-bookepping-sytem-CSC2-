@@ -1,12 +1,12 @@
 Seat,Status,Name,Timestamp
-1A,Taken,gabriel,2025-11-08 07:27:21
-1B,Available,,
+1A,Available,,2025-11-08 07:43:12
+1B,Available,,2025-11-08 07:42:38
 1C,Available,,
 1D,Available,,
 1E,Available,,
 1F,Available,,
-2A,Available,,
-2B,Available,,
+2A,Available,,2025-11-08 07:30:12
+2B,Taken,gab,2025-11-08 07:30:12
 2C,Available,,
 2D,Available,,
 2E,Available,,
