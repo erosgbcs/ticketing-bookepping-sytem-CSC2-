@@ -102,7 +102,7 @@ def normalize_seat_id_input(raw):
 # =========================
 def print_seat_map(service_key, seats):
     layout = LAYOUT_FUNCTIONS[service_key]()
-    print("\n--- SEAT LAYOUT (🟩=Available, 🟥=Taken, ⬛=Unavailable) ---")
+    print("\n--- SEAT LAYOUT (🟩 =Available, 🟥 =Taken, ⬛ =Unavailable) ---")
     layout_sorted = sorted(layout, key=lambda x: (int(''.join(filter(str.isdigit, x))), x))
     current_row = None
     for s in layout_sorted:
@@ -148,7 +148,7 @@ def reserve_seat(service_key):
 
     # --- Passenger name validation ---
     while True:
-        name = input("Enter passenger name: ").strip()
+        name = input("Enter passenger fullname: ").strip()
         if not name:
             print("⚠️ Name required.")
             continue
@@ -172,7 +172,7 @@ def reserve_seat(service_key):
 def show_ticket(service_key):
     seats = load_seats(service_key)
     print("\n🎫 === View Ticket ===")
-    search = input("Enter passenger name or seat ID (e.g. John or 1A): ").strip()
+    search = input("Enter passenger fullname or seat ID (e.g John or 1A): ").strip()
     if not search:
         print("⚠️ Input required.")
         return
@@ -358,7 +358,7 @@ def service_menu(service_key, service_name):
         print("3) Cancel reservation")
         print("4) Update seat booking")
         print("5) View booking report")
-        print("6) Admin: mark seat Unavailable / Reset seat")
+        print("6) Mark seat Unavailable / Reset seat")
         print("7) View passenger ticket")
         print("B) Back to main menu")
         choice = input("Choose option: ").strip().upper()
