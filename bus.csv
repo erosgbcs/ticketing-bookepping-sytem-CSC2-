@@ -1,9 +1,9 @@
 Seat,Status,Name,Timestamp
-1A,Available,,2025-11-05 06:17:39
-1B,Taken,jwfuh,2025-11-05 06:17:00
-1C,Taken,3jt,2025-11-05 06:17:25
+1A,Available,,
+1B,Available,,
+1C,Available,,
 1D,Available,,
-2A,Taken,eghuh,2025-11-05 06:17:09
+2A,Available,,
 2B,Available,,
 2C,Available,,
 2D,Available,,
@@ -20,7 +20,7 @@ Seat,Status,Name,Timestamp
 5C,Available,,
 5D,Available,,
 6A,Available,,
-6B,Available,,2025-11-05 05:58:23
+6B,Available,,
 6C,Available,,
 6D,Available,,
 7A,Available,,

@@ -39,7 +39,7 @@ def bus_layout():
     return [f"{r}{s}" for r in rows for s in seat_letters]
 # Bus: 12 rows × 4 seats per row (A-D)
 def airplane_layout():
-    rows = range(1, 21)
+    rows = range(1, 17)
     seat_letters = ["A", "B", "C", "D", "E", "F"]
     return [f"{r}{s}" for r in rows for s in seat_letters]
 # Shortcut dictionary to choose which layout to use
@@ -136,6 +136,7 @@ def print_seat_map(service_key, seats):
 # =========================
 
 # --- Reserve seat (booking) ---
+# --- Reserve seat (booking) ---
 def reserve_seat(service_key):
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
@@ -153,14 +154,114 @@ def reserve_seat(service_key):
     if info["Status"] == "Unavailable":
         print(f"⚠️ Seat {seat_id} is unavailable.")
         return
+
+    # --- Reserve seat (booking) ---
+def reserve_seat(service_key):
+    seats = load_seats(service_key)
+    print_seat_map(service_key, seats)
+    raw = input("Enter seat ID to reserve (e.g. 1A or A1, or 'B' to go back): ").strip()
+    if raw.upper() == "B":
+        return
+    seat_id = normalize_seat_id_input(raw)
+    if seat_id not in seats:
+        print("⚠️ Invalid seat ID.")
+        return
+    info = seats[seat_id]
+    if info["Status"] == "Taken":
+        print(f"⚠️ Seat {seat_id} is already taken by '{info['Name']}'.")
+        return
+    if info["Status"] == "Unavailable":
+        print(f"⚠️ Seat {seat_id} is unavailable.")
+        return
+
     # Reserve seat
     name = input("Enter passenger name: ").strip()
     if not name:
         print("⚠️ Name required.")
         return
-    seats[seat_id] = {"Status": "Taken", "Name": name, "Timestamp": now_str()}
+    timestamp = now_str()
+    seats[seat_id] = {"Status": "Taken", "Name": name, "Timestamp": timestamp}
     save_seats(service_key, seats)
     print(f"✅ Reserved seat {seat_id} for {name}.")
+
+    # Generate individual ticket CSV file
+    generate_ticket_csv(service_key, seat_id, name, timestamp)
+    print(f"🎫 Ticket generated for {name} (seat {seat_id}). Check 'tickets/' folder.")
+    1
+# --- Show ticket of a client/passenger ---
+def show_ticket(service_key):
+    """Display the ticket info for a specific passenger or seat."""
+    seats = load_seats(service_key)
+    print("\n🎫 === View Ticket ===")
+    search = input("Enter passenger name or seat ID (e.g. John or 1A): ").strip()
+    if not search:
+        print("⚠️ Input required.")
+        return
+
+    search_norm = normalize_seat_id_input(search)
+    found = False
+
+    for seat_id, info in seats.items():
+        if (
+            info["Status"] == "Taken" and
+            (info["Name"].lower() == search.lower() or seat_id == search_norm)
+        ):
+            found = True
+            service_name = {
+                "C": "Cinema",
+                "B": "Bus",
+                "A": "Airplane"
+            }.get(service_key, "Unknown")
+
+            print("\n==============================")
+            print(f"🎟  TICKET DETAILS ({service_name})")
+            print("==============================")
+            print(f"Seat       : {seat_id}")
+            print(f"Passenger  : {info['Name']}")
+            print(f"Service    : {service_name}")
+            print(f"Booked At  : {info['Timestamp']}")
+            print("==============================")
+
+            # Also check if a ticket CSV file exists
+            ticket_dir = "tickets"
+            safe_name = "".join(c for c in info['Name'] if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
+            filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
+            filepath = os.path.join(ticket_dir, filename)
+            if os.path.exists(filepath):
+                print(f"📄 Ticket file found: {filepath}")
+            else:
+                print("⚠️ Ticket CSV file not found (may have been deleted).")
+            break
+
+    if not found:
+        print("❌ No ticket found for that passenger or seat.")
+
+
+# --- Generate individual ticket CSV file ---
+def generate_ticket_csv(service_key, seat_id, name, timestamp):
+    """Create a CSV ticket for the given booking."""
+    service_name = {
+        "C": "Cinema",
+        "B": "Bus",
+        "A": "Airplane"
+    }.get(service_key, "Unknown")
+
+    # Ensure tickets folder exists
+    ticket_dir = "tickets"
+    os.makedirs(ticket_dir, exist_ok=True)
+
+    # Build filename (safe format)
+    safe_name = "".join(c for c in name if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
+    filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
+    filepath = os.path.join(ticket_dir, filename)
+
+    # Write CSV ticket
+    with open(filepath, "w", newline="") as f:
+        writer = csv.writer(f)
+        writer.writerow(["Service", "Seat", "Passenger", "Timestamp"])
+        writer.writerow([service_name, seat_id, name, timestamp])
+
+
 
 # --- Cancel reservation ---
 def cancel_reservation(service_key):
@@ -261,7 +362,6 @@ def set_unavailable(service_key):
 # =========================
 #        MENUS
 # =========================
-# --- Menu per service (Cinema/Bus/Airplane) ---
 def service_menu(service_key, service_name):
     while True:
         print(f"\n== {service_name} Menu ==")
@@ -269,9 +369,11 @@ def service_menu(service_key, service_name):
         print("2) Reserve seat")
         print("3) Cancel reservation")
         print("4) Update seat booking")
-        print("5) View bookking report")
+        print("5) View booking report")
         print("6) Admin: mark seat Unavailable / Reset seat")
+        print("7) View passenger ticket")  # <-- NEW
         print("B) Back to main menu")
+
         choice = input("Choose option: ").strip().upper()
         if choice == "1":
             seats = load_seats(service_key)
@@ -286,6 +388,8 @@ def service_menu(service_key, service_name):
             view_report(service_key)
         elif choice == "6":
             set_unavailable(service_key)
+        elif choice == "7":  # <-- NEW
+            show_ticket(service_key)
         elif choice == "B":
             break
         else:
