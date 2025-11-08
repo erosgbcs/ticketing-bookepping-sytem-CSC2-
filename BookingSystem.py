@@ -61,7 +61,6 @@ def load_seats(service_key):
     path = DATA_FILES[service_key]
     with open(path, newline="") as f:
         reader = csv.DictReader(f)
-        # Create a dictionary of seat data
         return {
             row["Seat"]: {
                 "Status": row["Status"],
@@ -117,7 +116,6 @@ def print_seat_map(service_key, seats):
         st = seats.get(s, {"Status": "Unavailable"})["Status"]
         symbol = "O" if st == "Available" else ("X" if st == "Taken" else "-")
         print(f"{seat_letter}{symbol} ", end="")
-        # Add spacing to represent aisle for bus/plane
         if service_key == "B" and seat_letter == "B":
             print("  ", end="")
         if service_key == "A" and seat_letter == "C":
@@ -130,13 +128,16 @@ def print_seat_map(service_key, seats):
 def reserve_seat(service_key):
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
+
     raw = input("Enter seat ID to reserve (e.g. 1A or A1, or 'B' to go back): ").strip()
     if raw.upper() == "B":
         return
+
     seat_id = normalize_seat_id_input(raw)
     if seat_id not in seats:
         print("⚠️ Invalid seat ID.")
         return
+
     info = seats[seat_id]
     if info["Status"] == "Taken":
         print(f"⚠️ Seat {seat_id} is already taken by '{info['Name']}'.")
@@ -145,10 +146,20 @@ def reserve_seat(service_key):
         print(f"⚠️ Seat {seat_id} is unavailable.")
         return
 
-    name = input("Enter passenger name: ").strip()
-    if not name:
-        print("⚠️ Name required.")
-        return
+    # --- Passenger name validation ---
+    while True:
+        name = input("Enter passenger name: ").strip()
+        if not name:
+            print("⚠️ Name required.")
+            continue
+        if not all(c.isalpha() or c == " " for c in name):
+            print("⚠️ Name can only contain letters and single spaces. Try again.")
+            continue
+        if "  " in name:
+            print("⚠️ Please avoid multiple spaces in the name.")
+            continue
+        name = " ".join(name.split())  # Trim extra spaces
+        break
 
     timestamp = now_str()
     seats[seat_id] = {"Status": "Taken", "Name": name, "Timestamp": timestamp}
@@ -174,12 +185,7 @@ def show_ticket(service_key):
             info["Name"].lower() == search.lower() or seat_id == search_norm
         ):
             found = True
-            service_name = {
-                "C": "Cinema",
-                "B": "Bus",
-                "A": "Airplane"
-            }.get(service_key, "Unknown")
-
+            service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
             print("\n==============================")
             print(f"🎟  TICKET DETAILS ({service_name})")
             print("==============================")
@@ -188,7 +194,6 @@ def show_ticket(service_key):
             print(f"Service    : {service_name}")
             print(f"Booked At  : {info['Timestamp']}")
             print("==============================")
-
             ticket_dir = "tickets"
             safe_name = "".join(c for c in info['Name'] if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
             filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
@@ -229,14 +234,11 @@ def cancel_reservation(service_key):
     if input("Type Y to confirm: ").strip().upper() != "Y":
         print("Reservation preserved.")
         return
-
-    # Delete old ticket file if exists
     service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
     safe_name = "".join(c for c in info['Name'] if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
     old_ticket = os.path.join("tickets", f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv")
     if os.path.exists(old_ticket):
         os.remove(old_ticket)
-
     seats[seat_id] = {"Status": "Available", "Name": "", "Timestamp": now_str()}
     save_seats(service_key, seats)
     print(f"✅ Cancelled booking on {seat_id} and removed ticket file.")
@@ -244,71 +246,67 @@ def cancel_reservation(service_key):
 def update_reservation(service_key):
     seats = load_seats(service_key)
     print_seat_map(service_key, seats)
-
     raw = input("Enter seat ID to update (or 'B' to go back): ").strip()
     if raw.upper() == "B":
         return
-
     seat_id = normalize_seat_id_input(raw)
     if seat_id not in seats or seats[seat_id]["Status"] != "Taken":
         print("⚠️ Seat not taken or invalid.")
         return
-
     info = seats[seat_id]
     print(f"\nSeat {seat_id} currently booked by {info['Name']}.")
     print("1) Change passenger name")
     print("2) Move to another seat")
     print("B) Back")
     choice = input("Select option: ").strip().upper()
-
     service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
     ticket_dir = "tickets"
     os.makedirs(ticket_dir, exist_ok=True)
-
     if choice == "1":
-        new_name = input("Enter new passenger name: ").strip()
-        if not new_name:
-            print("⚠️ Name required.")
-            return
-
+        # Name validation for updates
+        while True:
+            new_name = input("Enter new passenger name: ").strip()
+            if not new_name:
+                print("⚠️ Name required.")
+                continue
+            if not all(c.isalpha() or c == " " for c in new_name):
+                print("⚠️ Name can only contain letters and single spaces. Try again.")
+                continue
+            if "  " in new_name:
+                print("⚠️ Please avoid multiple spaces in the name.")
+                continue
+            new_name = " ".join(new_name.split())
+            break
         old_safe_name = "".join(c for c in info['Name'] if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
         old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{old_safe_name}.csv")
         if os.path.exists(old_ticket):
             os.remove(old_ticket)
-
         seats[seat_id]["Name"] = new_name
         seats[seat_id]["Timestamp"] = now_str()
         save_seats(service_key, seats)
         print(f"✅ Updated passenger name for seat {seat_id} to {new_name}.")
-
         generate_ticket_csv(service_key, seat_id, new_name, seats[seat_id]["Timestamp"])
         print(f"🎫 Ticket regenerated for {new_name} (seat {seat_id}).")
-
     elif choice == "2":
         target_raw = input("Enter target seat ID: ").strip()
         target = normalize_seat_id_input(target_raw)
         if target not in seats or seats[target]["Status"] != "Available":
             print("⚠️ Target seat invalid or not available.")
             return
-
         confirm = input(f"Move {info['Name']} from {seat_id} to {target}? (Y/N): ").strip().upper()
         if confirm != "Y":
             print("Action cancelled.")
             return
-
         safe_name = "".join(c for c in info['Name'] if c.isalnum() or c in (' ', '_')).strip().replace(" ", "_")
         old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv")
         if os.path.exists(old_ticket):
             os.remove(old_ticket)
-
         seats[target] = {"Status": "Taken", "Name": info["Name"], "Timestamp": now_str()}
         seats[seat_id] = {"Status": "Available", "Name": "", "Timestamp": now_str()}
         save_seats(service_key, seats)
-
         print(f"✅ Moved {info['Name']} from {seat_id} to {target}.")
         generate_ticket_csv(service_key, target, info["Name"], seats[target]["Timestamp"])
         print(f"🎫 New ticket generated for {info['Name']} (seat {target}).")
-
     elif choice == "B":
         print("Returning...")
     else:
@@ -363,7 +361,6 @@ def service_menu(service_key, service_name):
         print("6) Admin: mark seat Unavailable / Reset seat")
         print("7) View passenger ticket")
         print("B) Back to main menu")
-
         choice = input("Choose option: ").strip().upper()
         if choice == "1":
             seats = load_seats(service_key)
