@@ -583,6 +583,32 @@ def get_verified_personal_details():
     }
 
 # ------------------------
+# Validation Functions
+# ------------------------
+
+def validate_phone_number(phone):
+    """Enhanced phone validation"""
+    if not phone:
+        return False, "Phone number cannot be empty"
+    # Remove spaces, dashes, etc.
+    clean_phone = ''.join(filter(str.isdigit, phone))
+    if len(clean_phone) < 10:
+        return False, "Phone number too short (minimum 10 digits)"
+    if len(clean_phone) > 11:
+        return False, "Phone number too long (maximum 11 digits)"
+    return True, clean_phone
+
+def validate_email(email):
+    """Basic email validation"""
+    if not email:
+        return False, "Email cannot be empty"
+    if '@' not in email or '.' not in email:
+        return False, "Invalid email format (must contain @ and .)"
+    if len(email) < 5:
+        return False, "Email too short"
+    return True, email.strip().lower()
+
+# ------------------------
 # Enhanced Core Functions
 # ------------------------
 
@@ -776,32 +802,6 @@ def get_contact_details():
         break
     
     return validated_contact, address
-
-# ------------------------
-# Validation Functions
-# ------------------------
-
-def validate_phone_number(phone):
-    """Enhanced phone validation"""
-    if not phone:
-        return False, "Phone number cannot be empty"
-    # Remove spaces, dashes, etc.
-    clean_phone = ''.join(filter(str.isdigit, phone))
-    if len(clean_phone) < 10:
-        return False, "Phone number too short (minimum 10 digits)"
-    if len(clean_phone) > 11:
-        return False, "Phone number too long (maximum 11 digits)"
-    return True, clean_phone
-
-def validate_email(email):
-    """Basic email validation"""
-    if not email:
-        return False, "Email cannot be empty"
-    if '@' not in email or '.' not in email:
-        return False, "Invalid email format (must contain @ and .)"
-    if len(email) < 5:
-        return False, "Email too short"
-    return True, email.strip().lower()
 
 # ------------------------
 # Ticket CSV generation
@@ -1115,27 +1115,28 @@ def choose_ticket_types_with_current(service_key, current_type):
 # ------------------------
 
 def view_report(service_key):
-    print_header("\n📊 Enhanced Report Options:")
-    print("1) View all bookings")
-    print("2) Search client name")
-    print("3) Filter by ticket type") 
-    print("4) Show revenue summary")
-    print("B) Back")
-    
-    choice = input("Select report type: ").strip()
-    
-    if choice == "1":
-        basic_view_report(service_key)
-    elif choice == "2":
-        search_passenger_report(service_key)
-    elif choice == "3":
-        filter_by_ticket_type(service_key)
-    elif choice == "4":
-        show_revenue_summary(service_key)
-    elif choice.upper() == "B":
-        return
-    else:
-        print_error("Invalid option.")
+    while True:
+        print_header("\n📊 Enhanced Report Options:")
+        print("1) View all bookings")
+        print("2) Search client name")
+        print("3) Filter by ticket type") 
+        print("4) Show revenue summary")
+        print("B) Back")
+        
+        choice = input("Select report type: ").strip()
+        
+        if choice == "1":
+            basic_view_report(service_key)
+        elif choice == "2":
+            search_passenger_report(service_key)
+        elif choice == "3":
+            filter_by_ticket_type(service_key)
+        elif choice == "4":
+            show_revenue_summary(service_key)
+        elif choice.upper() == "B":
+            return
+        else:
+            print_error("Invalid option.")
 
 def basic_view_report(service_key):
     path = DATA_FILES[service_key]
@@ -1159,65 +1160,78 @@ def basic_view_report(service_key):
         print(f"{r['Seat']:<6} | {status_color}{r['Status']:<10}{Colors.END} | {name:<20} | {id_type:<12} | {contact:<12} | {r.get('TicketType',''):<10} | {pretty_price(r.get('FinalPrice') or 0):<10} | {r.get('Timestamp','')}")
     print("-" * 100)
     input("Press Enter to continue...")
+    return
 
 def search_passenger_report(service_key):
     seats = load_seats(service_key)
-    search_term = input("Enter client name to search: ").strip().lower()
-    
-    if not search_term:
-        print_warning("Search term required.")
-        return
-    
-    matches = []
-    for seat_id, info in seats.items():
-        if info["Status"] == "Taken" and search_term in info["Name"].lower():
-            matches.append((seat_id, info))
-    
-    if not matches:
-        print_warning(f"No bookings found for client containing '{search_term}'")
-        return
-    
-    print_header(f"\n📋 Bookings for client containing '{search_term}':")
-    print("-" * 100)
-    print(f"{Colors.BOLD}{'Seat':<6} | {'Name':<20} | {'ID Type':<12} | {'Contact':<12} | {'TicketType':<10} | {'FinalPrice':<10} | Timestamp{Colors.END}")
-    print("-" * 100)
-    for seat_id, info in matches:
-        print(f"{seat_id:<6} | {info['Name']:<20} | {info.get('IDType','-'):<12} | {info.get('Contact','-'):<12} | {info.get('TicketType','-'):<10} | {pretty_price(info.get('FinalPrice') or 0):<10} | {info.get('Timestamp','')}")
-    print("-" * 100)
-    input("Press Enter to continue...")
+    while True:
+        search_term = input("Enter client name to search (or 'B' to go back): ").strip().lower()
+        
+        if search_term.upper() == "B":
+            return
+        
+        if not search_term:
+            print_warning("Search term required.")
+            continue
+        
+        matches = []
+        for seat_id, info in seats.items():
+            if info["Status"] == "Taken" and search_term in info["Name"].lower():
+                matches.append((seat_id, info))
+        
+        if not matches:
+            print_warning(f"No bookings found for client containing '{search_term}'")
+            continue
+        
+        print_header(f"\n📋 Bookings for client containing '{search_term}':")
+        print("-" * 100)
+        print(f"{Colors.BOLD}{'Seat':<6} | {'Name':<20} | {'ID Type':<12} | {'Contact':<12} | {'TicketType':<10} | {'FinalPrice':<10} | Timestamp{Colors.END}")
+        print("-" * 100)
+        for seat_id, info in matches:
+            print(f"{seat_id:<6} | {info['Name']:<20} | {info.get('IDType','-'):<12} | {info.get('Contact','-'):<12} | {info.get('TicketType','-'):<10} | {pretty_price(info.get('FinalPrice') or 0):<10} | {info.get('Timestamp','')}")
+        print("-" * 100)
+        input("Press Enter to continue...")
+        break
 
 def filter_by_ticket_type(service_key):
     seats = load_seats(service_key)
     ticket_types = list_ticket_types(service_key)
     
-    print_header("\nAvailable Ticket Types:")
-    for i, ttype in enumerate(ticket_types, 1):
-        print(f"{i}) {ttype}")
-    
-    choice = input("Select ticket type to filter by: ").strip()
-    if not choice.isdigit() or not (1 <= int(choice) <= len(ticket_types)):
-        print_error("Invalid selection.")
-        return
-    
-    selected_type = ticket_types[int(choice) - 1]
-    matches = []
-    
-    for seat_id, info in seats.items():
-        if info["Status"] == "Taken" and info.get("TicketType") == selected_type:
-            matches.append((seat_id, info))
-    
-    if not matches:
-        print_warning(f"No bookings found for ticket type '{selected_type}'")
-        return
-    
-    print_header(f"\n📋 Bookings with ticket type '{selected_type}':")
-    print("-" * 90)
-    print(f"{Colors.BOLD}{'Seat':<6} | {'Name':<20} | {'Contact':<12} | {'FinalPrice':<10} | Timestamp{Colors.END}")
-    print("-" * 90)
-    for seat_id, info in matches:
-        print(f"{seat_id:<6} | {info['Name']:<20} | {info.get('Contact','-'):<12} | {pretty_price(info.get('FinalPrice') or 0):<10} | {info.get('Timestamp','')}")
-    print("-" * 90)
-    input("Press Enter to continue...")
+    while True:
+        print_header("\nAvailable Ticket Types:")
+        for i, ttype in enumerate(ticket_types, 1):
+            print(f"{i}) {ttype}")
+        print("B) Back")
+        
+        choice = input("Select ticket type to filter by (or 'B' to go back): ").strip()
+        
+        if choice.upper() == "B":
+            return
+        
+        if not choice.isdigit() or not (1 <= int(choice) <= len(ticket_types)):
+            print_error("Invalid selection.")
+            continue
+        
+        selected_type = ticket_types[int(choice) - 1]
+        matches = []
+        
+        for seat_id, info in seats.items():
+            if info["Status"] == "Taken" and info.get("TicketType") == selected_type:
+                matches.append((seat_id, info))
+        
+        if not matches:
+            print_warning(f"No bookings found for ticket type '{selected_type}'")
+            continue
+        
+        print_header(f"\n📋 Bookings with ticket type '{selected_type}':")
+        print("-" * 90)
+        print(f"{Colors.BOLD}{'Seat':<6} | {'Name':<20} | {'Contact':<12} | {'FinalPrice':<10} | Timestamp{Colors.END}")
+        print("-" * 90)
+        for seat_id, info in matches:
+            print(f"{seat_id:<6} | {info['Name']:<20} | {info.get('Contact','-'):<12} | {pretty_price(info.get('FinalPrice') or 0):<10} | {info.get('Timestamp','')}")
+        print("-" * 90)
+        input("Press Enter to continue...")
+        break
 
 def show_revenue_summary(service_key):
     seats = load_seats(service_key)
@@ -1616,10 +1630,98 @@ def set_unavailable(service_key):
             print_error("Invalid option. Please try again.")
 
 def bulk_reserve(service_key):
-    """Bulk reservation function - would need similar updates"""
-    print_warning("Bulk reservation feature needs to be updated for ID verification")
-    print_info("This feature is temporarily unavailable.")
-    return
+    """Bulk reservation function"""
+    print_header("\n🔐 BULK RESERVATION WITH ID VERIFICATION")
+    print_warning("Each seat requires individual identity verification.")
+    
+    seats = load_seats(service_key)
+    available_seats = show_available_seats(service_key, seats)
+    
+    if not available_seats:
+        return
+    
+    while True:
+        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip()
+        if raw_seats.upper() == "B":
+            return
+        
+        if not raw_seats:
+            print_warning("No seats entered.")
+            continue
+        
+        seat_ids = [normalize_seat_id_input(x.strip()) for x in raw_seats.split(",")]
+        invalid_seats = [s for s in seat_ids if s not in available_seats]
+        
+        if invalid_seats:
+            print_error(f"These seats are invalid or unavailable: {', '.join(invalid_seats)}")
+            continue
+        
+        # Verify identity once for all seats
+        customer_data = get_verified_personal_details()
+        if customer_data == "BACK":
+            continue
+        
+        # Select ticket type for all seats
+        ticket_type = choose_ticket_type_interactive(service_key)
+        if ticket_type == "BACK":
+            continue
+        
+        base, final = compute_price(service_key, ticket_type)
+        
+        # Confirm bulk booking
+        print_header(f"\n📋 BULK BOOKING SUMMARY - {len(seat_ids)} SEATS")
+        print(f"Client: {customer_data['full_name']}")
+        print(f"Seats: {', '.join(seat_ids)}")
+        print(f"Ticket Type: {ticket_type}")
+        print(f"Total Amount: {pretty_price(final * len(seat_ids))}")
+        
+        confirm = input(f"{Colors.YELLOW}Confirm bulk booking? (Y to confirm, B to go back): {Colors.END}").strip().upper()
+        if confirm != "Y":
+            continue
+        
+        # Process each seat
+        timestamp = now_str()
+        successful_reservations = 0
+        
+        for seat_id in seat_ids:
+            if seat_id in available_seats:  # Double-check availability
+                seats[seat_id] = {
+                    "Status": "Taken",
+                    "Name": customer_data['full_name'],
+                    "Timestamp": timestamp,
+                    "TicketType": ticket_type,
+                    "BasePrice": f"{base:.2f}",
+                    "FinalPrice": f"{final:.2f}",
+                    "Contact": customer_data['contact'],
+                    "Address": customer_data['address'],
+                    "IDType": customer_data['id_type'],
+                    "IDNumber": customer_data['id_number'],
+                    "VerifiedAt": customer_data['verified_at']
+                }
+                successful_reservations += 1
+                
+                # Generate individual ticket
+                service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
+                ticket_dir = "tickets"
+                os.makedirs(ticket_dir, exist_ok=True)
+                safe_name = safe_filename(customer_data['full_name'])
+                filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
+                filepath = os.path.join(ticket_dir, filename)
+                
+                with open(filepath, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Service", "Seat", "Passenger", "TicketType", "BasePrice", "FinalPrice", 
+                                   "Timestamp", "Contact", "Address", "IDType", "VerifiedAt"])
+                    writer.writerow([service_name, seat_id, customer_data['full_name'], ticket_type, 
+                                   f"{base:.2f}", f"{final:.2f}", timestamp, customer_data['contact'], 
+                                   customer_data['address'], customer_data['id_type'], customer_data['verified_at']])
+                
+                save_booking_history(service_key, seat_id, "BULK_RESERVATION", 
+                                   f"{customer_data['full_name']} - {ticket_type} - {pretty_price(final)}")
+        
+        save_seats(service_key, seats)
+        print_success(f"✅ Bulk reservation completed! {successful_reservations} seats reserved for {customer_data['full_name']}")
+        break
 
 def enhanced_main_menu():
     for k in DATA_FILES:
