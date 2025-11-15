@@ -694,6 +694,33 @@ def generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, ba
     
     return ticket_filepath
 
+def regenerate_ticket(service_key, seat_id, info):
+    """Regenerate a missing ticket file"""
+    service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
+    
+    customer_data = {
+        'full_name': info['Name'],
+        'id_type': info.get('IDType', 'Unknown'),
+        'contact': info.get('Contact', ''),
+        'address': info.get('Address', ''),
+        'verified_at': info.get('VerifiedAt', '')
+    }
+    
+    ticket_type = info.get('TicketType', 'Regular')
+    try:
+        base_price = float(info.get('BasePrice', 0))
+    except:
+        base_price = 0
+    try:
+        final_price = float(info.get('FinalPrice', 0))
+    except:
+        final_price = 0
+    
+    # Regenerate enhanced ticket
+    ticket_filepath = generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base_price, final_price)
+    print_success(f"✅ Regenerated ticket: {ticket_filepath}")
+    return ticket_filepath
+
 # ------------------------
 # Enhanced Bulk Reservation System
 # ------------------------
@@ -1125,7 +1152,6 @@ def show_ticket(service_key):
                 print(f"{Colors.BOLD}Contact:{Colors.END} {info.get('Contact', 'Not provided')}")
                 print(f"{Colors.BOLD}Address:{Colors.END} {info.get('Address', 'Not provided')}")
                 print(f"{Colors.BOLD}Government ID Type:{Colors.END} {info.get('IDType', 'Not provided')}")
-                # REMOVED: ID Number display
                 print(f"{Colors.BOLD}Verified At:{Colors.END} {info.get('VerifiedAt', 'Not provided')}")
                 print(f"{Colors.BOLD}Service:{Colors.END} {service_name}")
                 print(f"{Colors.BOLD}TicketType:{Colors.END} {info.get('TicketType') or '-'}")
@@ -1133,16 +1159,32 @@ def show_ticket(service_key):
                 print(f"{Colors.BOLD}Final Price:{Colors.END} {pretty_price(info.get('FinalPrice') or 0)}")
                 print(f"{Colors.BOLD}Booked At:{Colors.END} {info.get('Timestamp')}")
                 print_header("="*60)
-                # check for ticket file
-                ticket_dir = "tickets"
+                
+                # Check for enhanced digital ticket file
                 safe_name = safe_filename(info['Name'])
-                filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
-                filepath = os.path.join(ticket_dir, filename)
-                if os.path.exists(filepath):
-                    print_info(f"📄 Verified ticket file: {filepath}")
-                else:
-                    print_warning("⚠️ Ticket CSV file not found (may have been deleted).")
+                enhanced_filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}_enhanced.csv"
+                enhanced_filepath = os.path.join("digital_tickets", enhanced_filename)
+                
+                # Also check for legacy ticket file
+                legacy_filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
+                legacy_filepath = os.path.join("tickets", legacy_filename)
+                
+                ticket_found = False
+                if os.path.exists(enhanced_filepath):
+                    print_info(f"📄 Enhanced Digital Ticket: {enhanced_filepath}")
+                    ticket_found = True
+                if os.path.exists(legacy_filepath):
+                    print_info(f"📄 Legacy Ticket: {legacy_filepath}")
+                    ticket_found = True
+                
+                if not ticket_found:
+                    print_warning("⚠️ No ticket file found.")
+                    # Offer to regenerate the ticket
+                    regenerate = input(f"{Colors.YELLOW}Regenerate missing ticket file? (Y/N): {Colors.END}").strip().upper()
+                    if regenerate == "Y":
+                        regenerate_ticket(service_key, seat_id, info)
                 break
+                
         if not found:
             print_error("❌ No verified ticket found for that client or seat.")
         
@@ -1183,6 +1225,14 @@ def cancel_reservation(service_key):
                 os.remove(old_ticket)
             except Exception:
                 pass
+        # Also remove enhanced ticket if exists
+        enhanced_ticket = os.path.join("digital_tickets", f"ticket_{service_name.lower()}_{seat_id}_{safe_name}_enhanced.csv")
+        if os.path.exists(enhanced_ticket):
+            try:
+                os.remove(enhanced_ticket)
+            except Exception:
+                pass
+                
         seats[seat_id] = {
             "Status": "Available", "Name": "", "Timestamp": now_str(), "TicketType": "", 
             "BasePrice": "", "FinalPrice": "", "Contact": "", "Address": "", 
@@ -1190,7 +1240,7 @@ def cancel_reservation(service_key):
         }
         save_seats(service_key, seats)
         save_booking_history(service_key, seat_id, "CANCELLATION", f"{info['Name']} - ID: {info.get('IDType', 'Unknown')}")
-        print_success(f"Cancelled booking on {seat_id} and removed ticket file if it existed.")
+        print_success(f"Cancelled booking on {seat_id} and removed ticket files if they existed.")
         
         # Ask if user wants to cancel another reservation
         again = input(f"\n{Colors.YELLOW}Cancel another reservation? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
@@ -1246,16 +1296,44 @@ def update_reservation(service_key):
                 continue
                 
             old_safe = safe_filename(info['Name'])
+            # Remove old tickets
             old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{old_safe}.csv")
             if os.path.exists(old_ticket):
                 try:
                     os.remove(old_ticket)
                 except Exception:
                     pass
+            old_enhanced = os.path.join("digital_tickets", f"ticket_{service_name.lower()}_{seat_id}_{old_safe}_enhanced.csv")
+            if os.path.exists(old_enhanced):
+                try:
+                    os.remove(old_enhanced)
+                except Exception:
+                    pass
+                    
             seats[seat_id]["Name"] = new_name
             seats[seat_id]["Timestamp"] = now_str()
             save_seats(service_key, seats)
-            generate_ticket_csv(service_key, seat_id, new_name, seats[seat_id]["Timestamp"], seats[seat_id].get("TicketType",""), float(seats[seat_id].get("BasePrice") or 0), float(seats[seat_id].get("FinalPrice") or 0), seats[seat_id].get("Contact", ""), seats[seat_id].get("Address", ""))
+            
+            # Regenerate enhanced ticket
+            customer_data = {
+                'full_name': new_name,
+                'id_type': info.get('IDType', 'Unknown'),
+                'contact': info.get('Contact', ''),
+                'address': info.get('Address', ''),
+                'verified_at': info.get('VerifiedAt', '')
+            }
+            ticket_type = info.get('TicketType', 'Regular')
+            try:
+                base_price = float(info.get('BasePrice', 0))
+            except:
+                base_price = 0
+            try:
+                final_price = float(info.get('FinalPrice', 0))
+            except:
+                final_price = 0
+                
+            generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base_price, final_price)
+            
             save_booking_history(service_key, seat_id, "NAME_UPDATE", f"{info['Name']} -> {new_name}")
             print_success(f"Updated client name for seat {seat_id} to {new_name}.")
             break
@@ -1277,12 +1355,20 @@ def update_reservation(service_key):
                 continue
                 
             old_safe = safe_filename(info['Name'])
+            # Remove old tickets
             old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{old_safe}.csv")
             if os.path.exists(old_ticket):
                 try:
                     os.remove(old_ticket)
                 except Exception:
                     pass
+            old_enhanced = os.path.join("digital_tickets", f"ticket_{service_name.lower()}_{seat_id}_{old_safe}_enhanced.csv")
+            if os.path.exists(old_enhanced):
+                try:
+                    os.remove(old_enhanced)
+                except Exception:
+                    pass
+                    
             seats[target] = {
                 "Status": "Taken",
                 "Name": info["Name"],
@@ -1302,7 +1388,27 @@ def update_reservation(service_key):
                 "IDType": "", "IDNumber": "", "VerifiedAt": ""
             }
             save_seats(service_key, seats)
-            generate_ticket_csv(service_key, target, seats[target]["Name"], seats[target]["Timestamp"], seats[target].get("TicketType",""), float(seats[target].get("BasePrice") or 0), float(seats[target].get("FinalPrice") or 0), seats[target].get("Contact", ""), seats[target].get("Address", ""))
+            
+            # Generate new enhanced ticket for target seat
+            customer_data = {
+                'full_name': info["Name"],
+                'id_type': info.get('IDType', 'Unknown'),
+                'contact': info.get('Contact', ''),
+                'address': info.get('Address', ''),
+                'verified_at': info.get('VerifiedAt', '')
+            }
+            ticket_type = info.get('TicketType', 'Regular')
+            try:
+                base_price = float(info.get('BasePrice', 0))
+            except:
+                base_price = 0
+            try:
+                final_price = float(info.get('FinalPrice', 0))
+            except:
+                final_price = 0
+                
+            generate_digital_ticket(service_key, target, customer_data, ticket_type, base_price, final_price)
+            
             save_booking_history(service_key, seat_id, "SEAT_MOVE", f"{info['Name']} from {seat_id} to {target}")
             print_success(f"Moved {info['Name']} from {seat_id} to {target}.")
             break
@@ -1318,15 +1424,25 @@ def update_reservation(service_key):
             seats[seat_id]["FinalPrice"] = f"{final:.2f}"
             seats[seat_id]["Timestamp"] = now_str()
             save_seats(service_key, seats)
-            # regenerate ticket file
+            
+            # regenerate enhanced ticket file
             old_safe = safe_filename(info['Name'])
-            old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{old_safe}.csv")
-            if os.path.exists(old_ticket):
+            old_enhanced = os.path.join("digital_tickets", f"ticket_{service_name.lower()}_{seat_id}_{old_safe}_enhanced.csv")
+            if os.path.exists(old_enhanced):
                 try:
-                    os.remove(old_ticket)
+                    os.remove(old_enhanced)
                 except Exception:
                     pass
-            generate_ticket_csv(service_key, seat_id, seats[seat_id]["Name"], seats[seat_id]["Timestamp"], new_type, base, final, seats[seat_id].get("Contact", ""), seats[seat_id].get("Address", ""))
+                    
+            customer_data = {
+                'full_name': info["Name"],
+                'id_type': info.get('IDType', 'Unknown'),
+                'contact': info.get('Contact', ''),
+                'address': info.get('Address', ''),
+                'verified_at': info.get('VerifiedAt', '')
+            }
+            generate_digital_ticket(service_key, seat_id, customer_data, new_type, base, final)
+            
             save_booking_history(service_key, seat_id, "TICKET_TYPE_UPDATE", f"{info.get('TicketType', 'None')} -> {new_type}")
             print_success(f"Ticket type updated to {new_type} for {seat_id}. Final price: {pretty_price(final)}")
             break
@@ -1346,15 +1462,34 @@ def update_reservation(service_key):
             seats[seat_id]["Timestamp"] = now_str()
             save_seats(service_key, seats)
             
-            # regenerate ticket file
+            # regenerate enhanced ticket file
             old_safe = safe_filename(info['Name'])
-            old_ticket = os.path.join(ticket_dir, f"ticket_{service_name.lower()}_{seat_id}_{old_safe}.csv")
-            if os.path.exists(old_ticket):
+            old_enhanced = os.path.join("digital_tickets", f"ticket_{service_name.lower()}_{seat_id}_{old_safe}_enhanced.csv")
+            if os.path.exists(old_enhanced):
                 try:
-                    os.remove(old_ticket)
+                    os.remove(old_enhanced)
                 except Exception:
                     pass
-            generate_ticket_csv(service_key, seat_id, seats[seat_id]["Name"], seats[seat_id]["Timestamp"], seats[seat_id].get("TicketType",""), float(seats[seat_id].get("BasePrice") or 0), float(seats[seat_id].get("FinalPrice") or 0), contact, address)
+                    
+            customer_data = {
+                'full_name': info["Name"],
+                'id_type': info.get('IDType', 'Unknown'),
+                'contact': contact,
+                'address': address,
+                'verified_at': info.get('VerifiedAt', '')
+            }
+            ticket_type = info.get('TicketType', 'Regular')
+            try:
+                base_price = float(info.get('BasePrice', 0))
+            except:
+                base_price = 0
+            try:
+                final_price = float(info.get('FinalPrice', 0))
+            except:
+                final_price = 0
+                
+            generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base_price, final_price)
+            
             save_booking_history(service_key, seat_id, "CONTACT_UPDATE", f"Contact details updated")
             print_success(f"Updated contact details for {info['Name']} on seat {seat_id}.")
             break
@@ -1722,8 +1857,8 @@ def bulk_reserve(service_key):
         return
     
     while True:
-        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip()
-        if raw_seats.upper() == "B":
+        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'BACK' to go back): ").strip()
+        if raw_seats.upper() == "BACK":
             return
         
         if not raw_seats:
@@ -1781,21 +1916,8 @@ def bulk_reserve(service_key):
                 }
                 successful_reservations += 1
                 
-                # Generate individual ticket
-                service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
-                ticket_dir = "tickets"
-                os.makedirs(ticket_dir, exist_ok=True)
-                safe_name = safe_filename(customer_data['full_name'])
-                filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
-                filepath = os.path.join(ticket_dir, filename)
-                
-                with open(filepath, "w", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["Service", "Seat", "Passenger", "TicketType", "BasePrice", "FinalPrice", 
-                                   "Timestamp", "Contact", "Address", "IDType", "VerifiedAt"])
-                    writer.writerow([service_name, seat_id, customer_data['full_name'], ticket_type, 
-                                   f"{base:.2f}", f"{final:.2f}", timestamp, customer_data['contact'], 
-                                   customer_data['address'], customer_data['id_type'], customer_data['verified_at']])
+                # Generate individual enhanced ticket
+                generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base, final)
                 
                 save_booking_history(service_key, seat_id, "BULK_RESERVATION", 
                                    f"{customer_data['full_name']} - {ticket_type} - {pretty_price(final)}")
@@ -1904,8 +2026,8 @@ def set_unavailable(service_key):
                 
         elif choice == "4":
             # Bulk reset seats to available
-            raw = input("Enter seat IDs to reset to available (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip().upper()
-            if raw == "B":
+            raw = input("Enter seat IDs to reset to available (comma-separated, e.g. 1A,1B,1C, or 'BACK.' to go back): ").strip().upper()
+            if raw == "BACK.":
                 continue
             if not raw:
                 print_warning("No seats entered.")
@@ -1998,7 +2120,7 @@ def service_menu(service_key, service_name):
         print_header(f"\n== {service_name} Menu ==")
         print("1) View seat layout")
         print("2) Reserve seat")
-        print("3) Bulk Reserve")  # ENHANCED OPTION
+        print("3) Enhanced Bulk Reserve")  # ENHANCED OPTION
         print("4) Cancel reservation")
         print("5) Update seat booking")
         print("6) View booking report")
@@ -2040,11 +2162,11 @@ def show_system_reports():
         print("2) Bus Report")
         print("3) Airplane Report")
         print("4) Combined Revenue Report")
-        print("B) Back to main menu")
+        print("BACK) Back to main menu")
         
         choice = input("Select report (or 'B' to go back): ").strip().upper()
         
-        if choice == "B":
+        if choice == "BACK":
             break
             
         if choice == "1":
