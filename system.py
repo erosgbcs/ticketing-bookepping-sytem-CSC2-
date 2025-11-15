@@ -739,8 +739,8 @@ def get_verified_personal_details_individual(seat_number, service_key):
     
     # Contact Information
     while True:
-        contact = input(f"Passenger {seat_number} mobile number (or 'B' to go back): ").strip()
-        if contact.upper() == "B":
+        contact = input(f"Passenger {seat_number} mobile number (or 'BACK' to go back): ").strip()
+        if contact.upper() == "BACK":
             return "BACK"
         
         is_valid, validated_contact = validate_phone_number(contact)
@@ -952,8 +952,8 @@ def reserve_seat(service_key):
         seats = load_seats(service_key)
         print_seat_map(service_key, seats)
         
-        raw = input("Enter seat ID to reserve (e.g. 1A or A1, or 'B' to go back): ").strip()
-        if raw.upper() == "B":
+        raw = input("Enter seat ID to reserve (e.g. 1A or A1, or 'BACK' to go back): ").strip()
+        if raw.upper() == "BACK":
             return
         
         seat_id = normalize_seat_id_input(raw)
@@ -1092,8 +1092,8 @@ def get_contact_details():
         break
     
     while True:
-        address = input("Enter address (or 'B' to go back): ").strip()
-        if address.upper() == "B":
+        address = input("Enter address (or 'BACK' to go back): ").strip()
+        if address.upper() == "BACK":
             return "BACK", "BACK"
         if not address:
             address = "-"
