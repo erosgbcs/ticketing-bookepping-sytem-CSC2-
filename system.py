@@ -243,40 +243,84 @@ def choose_ticket_type_interactive(service_key):
 # Identity Validation System
 # ------------------------
 
-def validate_full_name(name):
-    """Validate complete legal name format"""
-    if not name or not name.strip():
-        return False, "Name cannot be empty"
+def get_full_name_separate():
+    """Get first name, middle initial, and surname separately"""
+    print_header("\n📝 ADMIN: Legal Name Verification")
+    print("Enter client's complete legal name as it appears on government ID:")
     
-    name = name.strip()
-    name_parts = name.split()
+    # First Name
+    while True:
+        first_name = input("First Name (or 'B' to go back): ").strip()
+        if first_name.upper() == "B":
+            return "BACK"
+        
+        if not first_name:
+            print_warning("First name is required")
+            continue
+        
+        if len(first_name) < 2:
+            print_warning("First name must be at least 2 characters")
+            continue
+        
+        if not re.match(r'^[a-zA-Z\s\-]+$', first_name):
+            print_warning("First name can only contain letters, spaces, and hyphens")
+            continue
+        
+        first_name = first_name.title()
+        break
     
-    # Check minimum name parts (at least first and last name)
-    if len(name_parts) < 2:
-        return False, "Please enter complete legal name (First Middle Last)"
+    # Middle Initial
+    while True:
+        middle_initial = input("Middle Initial (or press Enter if none): ").strip()
+        if middle_initial.upper() == "B":
+            return "BACK"
+        
+        if middle_initial:
+            if len(middle_initial) != 1 or not middle_initial.isalpha():
+                print_warning("Middle initial must be a single letter")
+                continue
+            middle_initial = middle_initial.upper()
+        else:
+            middle_initial = ""
+        break
     
-    # Check name length
-    if len(name) < 4:
-        return False, "Name is too short"
-    if len(name) > 100:
-        return False, "Name is too long"
+    # Surname
+    while True:
+        surname = input("Surname (or 'B' to go back): ").strip()
+        if surname.upper() == "B":
+            return "BACK"
+        
+        if not surname:
+            print_warning("Surname is required")
+            continue
+        
+        if len(surname) < 2:
+            print_warning("Surname must be at least 2 characters")
+            continue
+        
+        if not re.match(r'^[a-zA-Z\s\-]+$', surname):
+            print_warning("Surname can only contain letters, spaces, and hyphens")
+            continue
+        
+        surname = surname.title()
+        break
     
-    # Check for valid characters (allow letters, spaces, hyphens, apostrophes)
-    if not re.match(r'^[a-zA-Z\s\-\'\.]+$', name):
-        return False, "Name can only contain letters, spaces, hyphens (-), apostrophes (') and periods (.)"
+    # Combine into full name
+    if middle_initial:
+        full_name = f"{first_name} {middle_initial}. {surname}"
+    else:
+        full_name = f"{first_name} {surname}"
     
-    # Check for consecutive spaces
-    if '  ' in name:
-        return False, "Name cannot have consecutive spaces"
+    # Confirm the full name
+    print(f"\nFull Name: {full_name}")
+    confirm = input(f"{Colors.YELLOW}Is this correct? (Y to confirm, N to re-enter, B to go back): {Colors.END}").strip().upper()
     
-    # Check each name part length
-    for part in name_parts:
-        if len(part) < 2:
-            return False, "Each name part must be at least 2 characters"
-        if len(part) > 25:
-            return False, "Name parts cannot exceed 25 characters"
+    if confirm == "B":
+        return "BACK"
+    elif confirm != "Y":
+        return get_full_name_separate()
     
-    return True, name.title()
+    return full_name
 
 def validate_government_id():
     """Validate government-issued ID with proper format checking"""
@@ -314,7 +358,7 @@ def validate_government_id():
     while True:
         print(f"\nEnter client's {selected_type['name']} number")
         print(f"Format: {selected_type['example']}")
-        id_number = input("ID number: ").strip().upper()
+        id_number = input("ID number (or 'B' to go back): ").strip().upper()
         
         if id_number.upper() == "B":
             return "BACK", "BACK"
@@ -409,7 +453,7 @@ def get_verified_address():
     
     # Street Address
     while True:
-        street = input("Street address (including house/building number): ").strip()
+        street = input("Street address (including house/building number, or 'B' to go back): ").strip()
         if street.upper() == "B":
             return "BACK"
         
@@ -431,7 +475,7 @@ def get_verified_address():
     
     # Barangay
     while True:
-        barangay = input("Barangay: ").strip()
+        barangay = input("Barangay (or 'B' to go back): ").strip()
         if barangay.upper() == "B":
             return "BACK"
         
@@ -448,7 +492,7 @@ def get_verified_address():
     
     # City/Municipality
     while True:
-        city = input("City/Municipality: ").strip()
+        city = input("City/Municipality (or 'B' to go back): ").strip()
         if city.upper() == "B":
             return "BACK"
         
@@ -465,7 +509,7 @@ def get_verified_address():
     
     # Province
     while True:
-        province = input("Province: ").strip()
+        province = input("Province (or 'B' to go back): ").strip()
         if province.upper() == "B":
             return "BACK"
         
@@ -482,7 +526,7 @@ def get_verified_address():
     
     # ZIP Code
     while True:
-        zip_code = input("ZIP Code: ").strip()
+        zip_code = input("ZIP Code (or 'B' to go back): ").strip()
         if zip_code.upper() == "B":
             return "BACK"
         
@@ -507,8 +551,10 @@ def get_verified_address():
     print(f"• Province: {address_parts['province']}")
     print(f"• ZIP Code: {address_parts['zip_code']}")
     
-    confirm = input(f"\n{Colors.YELLOW}Is this address correct? (Y to confirm, N to re-enter): {Colors.END}").strip().upper()
-    if confirm != "Y":
+    confirm = input(f"\n{Colors.YELLOW}Is this address correct? (Y to confirm, N to re-enter, B to go back): {Colors.END}").strip().upper()
+    if confirm == "B":
+        return "BACK"
+    elif confirm != "Y":
         print_info("Let's try again...")
         return get_verified_address()
     
@@ -520,23 +566,10 @@ def get_verified_personal_details():
     print_warning("Government ID verification is required by law for all bookings.")
     print("This helps prevent fraud and ensures ticket authenticity.\n")
     
-    # 1. Legal Name Validation
-    print_header("📝 ADMIN: Legal Name Verification")
-    print("Enter client's complete legal name as it appears on government ID:")
-    
-    while True:
-        full_name = input("Full legal name (First Middle Last): ").strip()
-        if full_name.upper() == "B":
-            return "BACK"
-        
-        is_valid, result = validate_full_name(full_name)
-        if not is_valid:
-            print_warning(result)
-            continue
-        
-        full_name = result  # Use the formatted name
-        print_success("✓ Name format validated")
-        break
+    # 1. Legal Name Validation (separate fields)
+    full_name = get_full_name_separate()
+    if full_name == "BACK":
+        return "BACK"
     
     # 2. Government ID Validation
     id_type, id_number = validate_government_id()
@@ -546,7 +579,7 @@ def get_verified_personal_details():
     # 3. Contact Information
     print_header("\n📞 ADMIN: Contact Information")
     while True:
-        contact = input("Client's mobile number: ").strip()
+        contact = input("Client's mobile number (or 'B' to go back): ").strip()
         if contact.upper() == "B":
             return "BACK"
         
@@ -568,8 +601,10 @@ def get_verified_personal_details():
     print(f"Contact: {validated_contact}")
     print(f"Address: {address}")
     
-    confirm = input(f"\n{Colors.YELLOW}Confirm all client information is correct? (Y to proceed, N to restart): {Colors.END}").strip().upper()
-    if confirm != "Y":
+    confirm = input(f"\n{Colors.YELLOW}Confirm all client information is correct? (Y to proceed, N to restart, B to go back): {Colors.END}").strip().upper()
+    if confirm == "B":
+        return "BACK"
+    elif confirm != "Y":
         print_info("Restarting verification process...")
         return get_verified_personal_details()
     
@@ -873,7 +908,11 @@ def show_ticket(service_key):
                 break
         if not found:
             print_error("❌ No verified ticket found for that client or seat.")
-        break
+        
+        # Ask if user wants to search again
+        again = input(f"\n{Colors.YELLOW}Search again? (Y to search again, any other key to go back): {Colors.END}").strip().upper()
+        if again != "Y":
+            break
 
 def cancel_reservation(service_key):
     while True:
@@ -915,7 +954,11 @@ def cancel_reservation(service_key):
         save_seats(service_key, seats)
         save_booking_history(service_key, seat_id, "CANCELLATION", f"{info['Name']} - ID: {info.get('IDType', 'Unknown')}")
         print_success(f"Cancelled booking on {seat_id} and removed ticket file if it existed.")
-        break
+        
+        # Ask if user wants to cancel another reservation
+        again = input(f"\n{Colors.YELLOW}Cancel another reservation? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
+        if again != "Y":
+            break
 
 def update_reservation(service_key):
     while True:
@@ -939,7 +982,7 @@ def update_reservation(service_key):
         print("3) Change ticket type")
         print("4) Update contact details")
         print("B) Back")
-        choice = input("Select option: ").strip().upper()
+        choice = input("Select option (or 'B' to go back): ").strip().upper()
         
         if choice == "B":
             continue
@@ -1081,6 +1124,11 @@ def update_reservation(service_key):
             
         else:
             print_error("Invalid option. Please try again.")
+        
+        # Ask if user wants to update another reservation
+        again = input(f"\n{Colors.YELLOW}Update another reservation? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
+        if again != "Y":
+            break
 
 def choose_ticket_types_with_current(service_key, current_type):
     types = list_ticket_types(service_key)
@@ -1092,7 +1140,7 @@ def choose_ticket_types_with_current(service_key, current_type):
     print("B) Back to previous menu")
     
     while True:
-        sel = input("Choice (number or name): ").strip()
+        sel = input("Choice (number or name, or 'B' to go back): ").strip()
         if not sel:
             print_warning("Selection required.")
             continue
@@ -1123,8 +1171,11 @@ def view_report(service_key):
         print("4) Show revenue summary")
         print("B) Back")
         
-        choice = input("Select report type: ").strip()
+        choice = input("Select report type (or 'B' to go back): ").strip()
         
+        if choice.upper() == "B":
+            return
+            
         if choice == "1":
             basic_view_report(service_key)
         elif choice == "2":
@@ -1133,10 +1184,13 @@ def view_report(service_key):
             filter_by_ticket_type(service_key)
         elif choice == "4":
             show_revenue_summary(service_key)
-        elif choice.upper() == "B":
-            return
         else:
             print_error("Invalid option.")
+        
+        # Ask if user wants to view another report
+        again = input(f"\n{Colors.YELLOW}View another report? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
+        if again != "Y":
+            break
 
 def basic_view_report(service_key):
     path = DATA_FILES[service_key]
@@ -1358,8 +1412,11 @@ def system_settings():
         print("3) System statistics")
         print("B) Back to main menu")
         
-        choice = input("Select option: ").strip().upper()
+        choice = input("Select option (or 'B' to go back): ").strip().upper()
         
+        if choice == "B":
+            break
+            
         if choice == "1":
             expired_total = 0
             for service_key in DATA_FILES:
@@ -1372,8 +1429,6 @@ def system_settings():
             view_booking_history()
         elif choice == "3":
             show_system_statistics()
-        elif choice == "B":
-            break
         else:
             print_error("Invalid option.")
 
@@ -1430,7 +1485,9 @@ def service_menu(service_key, service_name):
         print("7) View client ticket")
         print("8) Bulk reserve")
         print("B) Back to main menu")
-        choice = input("Choose option: ").strip().upper()
+        choice = input("Choose option (or 'B' to go back): ").strip().upper()
+        if choice == "B":
+            break
         if choice == "1":
             seats = load_seats(service_key)
             print_seat_map(service_key, seats)
@@ -1448,8 +1505,6 @@ def service_menu(service_key, service_name):
             show_ticket(service_key)
         elif choice == "8":
             bulk_reserve(service_key)
-        elif choice == "B":
-            break
         else:
             print_error("Invalid option.")
 
@@ -1466,7 +1521,7 @@ def set_unavailable(service_key):
         print("5) Reset ALL seats to available")
         print("B) Back to previous menu")
         
-        choice = input("Select option: ").strip().upper()
+        choice = input("Select option (or 'B' to go back): ").strip().upper()
         
         if choice == "B":
             return
@@ -1628,6 +1683,11 @@ def set_unavailable(service_key):
             
         else:
             print_error("Invalid option. Please try again.")
+        
+        # Ask if user wants to manage more seats
+        again = input(f"\n{Colors.YELLOW}Manage more seats? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
+        if again != "Y":
+            break
 
 def bulk_reserve(service_key):
     """Bulk reservation function"""
@@ -1785,8 +1845,11 @@ def show_system_reports():
         print("4) Combined Revenue Report")
         print("B) Back to main menu")
         
-        choice = input("Select report: ").strip().upper()
+        choice = input("Select report (or 'B' to go back): ").strip().upper()
         
+        if choice == "B":
+            break
+            
         if choice == "1":
             view_report("C")
         elif choice == "2":
@@ -1795,8 +1858,6 @@ def show_system_reports():
             view_report("A")
         elif choice == "4":
             show_combined_revenue()
-        elif choice == "B":
-            break
         else:
             print_error("Invalid option.")
 
