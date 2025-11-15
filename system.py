@@ -3,6 +3,7 @@
 import os
 import csv
 import re
+import hashlib
 from datetime import datetime, timedelta
 
 PRICING = {
@@ -644,6 +645,254 @@ def validate_email(email):
     return True, email.strip().lower()
 
 # ------------------------
+# Digital Ticket System (CSV Only)
+# ------------------------
+
+def generate_verification_hash(ticket_data):
+    """Generate secure verification hash for ticket authenticity"""
+    data_string = f"{ticket_data['service']}{ticket_data['seat']}{ticket_data['passenger']}{ticket_data['timestamp']}{ticket_data['id_type']}"
+    return hashlib.sha256(data_string.encode()).hexdigest()[:16]
+
+def generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base_price, final_price):
+    """Create enhanced ticket files using CSV only"""
+    service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
+    timestamp = now_str()
+    
+    # Create enhanced CSV ticket file
+    ticket_dir = "digital_tickets"
+    os.makedirs(ticket_dir, exist_ok=True)
+    safe_name = safe_filename(customer_data['full_name'])
+    ticket_filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}_enhanced.csv"
+    ticket_filepath = os.path.join(ticket_dir, ticket_filename)
+    
+    # Write enhanced CSV ticket with verification data
+    with open(ticket_filepath, 'w', newline='') as f:
+        writer = csv.writer(f)
+        writer.writerow(["ENHANCED DIGITAL TICKET - VERIFIED IDENTITY"])
+        writer.writerow(["Service", service_name])
+        writer.writerow(["Seat", seat_id])
+        writer.writerow(["Passenger", customer_data['full_name']])
+        writer.writerow(["Ticket Type", ticket_type])
+        writer.writerow(["Final Price", f"{final_price:.2f}"])
+        writer.writerow(["Timestamp", timestamp])
+        writer.writerow(["Contact", customer_data['contact']])
+        writer.writerow(["Government ID Type", customer_data['id_type']])
+        writer.writerow(["Verified At", customer_data['verified_at']])
+        writer.writerow(["Address", customer_data['address']])
+        writer.writerow(["Verification Hash", generate_verification_hash({
+            "service": service_name,
+            "seat": seat_id,
+            "passenger": customer_data['full_name'],
+            "timestamp": timestamp,
+            "id_type": customer_data['id_type']
+        })])
+        writer.writerow([])
+        writer.writerow(["THIS IS A VERIFIED TICKET WITH GOVERNMENT ID VALIDATION"])
+    
+    print_success(f"🎫 Digital ticket generated!")
+    print_success(f"📄 Enhanced Ticket: {ticket_filepath}")
+    
+    return ticket_filepath
+
+# ------------------------
+# Enhanced Bulk Reservation System
+# ------------------------
+
+def get_verified_personal_details_individual(seat_number, service_key):
+    """Individual passenger verification for bulk bookings"""
+    print_header(f"\n👤 PASSENGER {seat_number} - IDENTITY VERIFICATION")
+    
+    full_name = get_full_name_separate()
+    if full_name == "BACK":
+        return "BACK"
+    
+    id_type, id_number = validate_government_id()
+    if id_type == "BACK":
+        return "BACK"
+    
+    # Contact Information
+    while True:
+        contact = input(f"Passenger {seat_number} mobile number (or 'B' to go back): ").strip()
+        if contact.upper() == "B":
+            return "BACK"
+        
+        is_valid, validated_contact = validate_phone_number(contact)
+        if not is_valid:
+            print_warning(validated_contact)
+            continue
+        break
+    
+    # Address
+    address = get_verified_address()
+    if address == "BACK":
+        return "BACK"
+    
+    # Individual ticket type selection
+    print_header(f"\n🎫 PASSENGER {seat_number} - TICKET TYPE SELECTION")
+    ticket_type = choose_ticket_type_interactive(service_key)
+    if ticket_type == "BACK":
+        return "BACK"
+    
+    # Summary confirmation for individual passenger
+    print_header(f"\n✅ PASSENGER {seat_number} VERIFICATION SUMMARY")
+    print(f"Legal Name: {full_name}")
+    print(f"Government ID Type: {id_type}")
+    print(f"Contact: {validated_contact}")
+    print(f"Ticket Type: {ticket_type}")
+    
+    confirm = input(f"\n{Colors.YELLOW}Confirm passenger {seat_number} information? (Y to proceed, N to restart, B to go back): {Colors.END}").strip().upper()
+    if confirm == "B":
+        return "BACK"
+    elif confirm != "Y":
+        print_info("Restarting passenger verification...")
+        return get_verified_personal_details_individual(seat_number, service_key)
+    
+    base, final = compute_price(service_key, ticket_type)
+    
+    return {
+        'full_name': full_name,
+        'id_type': id_type,
+        'id_number': id_number,
+        'contact': validated_contact,
+        'address': address,
+        'ticket_type': ticket_type,
+        'base_price': base,
+        'final_price': final,
+        'verified_at': now_str()
+    }
+
+def bulk_reserve_enhanced(service_key):
+    """Enhanced bulk reservation with individual passenger details"""
+    print_header("\n🔐 ENHANCED BULK RESERVATION")
+    print("Each seat can have different passengers and ticket types!")
+    
+    seats = load_seats(service_key)
+    available_seats = show_available_seats(service_key, seats)
+    
+    if not available_seats:
+        return
+    
+    while True:
+        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip()
+        if raw_seats.upper() == "B":
+            return
+        
+        if not raw_seats:
+            print_warning("No seats entered.")
+            continue
+        
+        seat_ids = [normalize_seat_id_input(x.strip()) for x in raw_seats.split(",")]
+        invalid_seats = [s for s in seat_ids if s not in available_seats]
+        
+        if invalid_seats:
+            print_error(f"These seats are invalid or unavailable: {', '.join(invalid_seats)}")
+            continue
+        
+        # Collect individual passenger data for each seat
+        passenger_data = {}
+        all_ticket_types = set()
+        total_amount = 0
+        
+        for seat_id in seat_ids:
+            print_header(f"\n🎟️ SEAT {seat_id} - PASSENGER DETAILS")
+            
+            passenger_info = get_verified_personal_details_individual(seat_id, service_key)
+            if passenger_info == "BACK":
+                print_info("Bulk reservation cancelled.")
+                return
+            
+            passenger_data[seat_id] = passenger_info
+            all_ticket_types.add(passenger_info['ticket_type'])
+            total_amount += passenger_info['final_price']
+        
+        # Show bulk booking summary
+        print_header(f"\n📋 ENHANCED BULK BOOKING SUMMARY - {len(seat_ids)} SEATS")
+        for seat_id in seat_ids:
+            info = passenger_data[seat_id]
+            print(f"Seat {seat_id}: {info['full_name']} - {info['ticket_type']} - {pretty_price(info['final_price'])}")
+        
+        print(f"\n{Colors.BOLD}Total Amount: {pretty_price(total_amount)}{Colors.END}")
+        print(f"Ticket Types Used: {', '.join(all_ticket_types)}")
+        
+        confirm = input(f"\n{Colors.YELLOW}Confirm enhanced bulk booking? (Y to confirm, B to go back): {Colors.END}").strip().upper()
+        if confirm == "B":
+            continue
+        if confirm != "Y":
+            continue
+        
+        # Process each seat with individual data
+        timestamp = now_str()
+        successful_reservations = 0
+        
+        for seat_id in seat_ids:
+            if seat_id in available_seats:
+                info = passenger_data[seat_id]
+                
+                seats[seat_id] = {
+                    "Status": "Taken",
+                    "Name": info['full_name'],
+                    "Timestamp": timestamp,
+                    "TicketType": info['ticket_type'],
+                    "BasePrice": f"{info['base_price']:.2f}",
+                    "FinalPrice": f"{info['final_price']:.2f}",
+                    "Contact": info['contact'],
+                    "Address": info['address'],
+                    "IDType": info['id_type'],
+                    "IDNumber": info['id_number'],
+                    "VerifiedAt": info['verified_at']
+                }
+                successful_reservations += 1
+                
+                # Generate individual digital ticket
+                generate_digital_ticket(service_key, seat_id, info, info['ticket_type'], 
+                                      info['base_price'], info['final_price'])
+                
+                save_booking_history(service_key, seat_id, "ENHANCED_BULK_RESERVATION", 
+                                   f"{info['full_name']} - {info['ticket_type']} - {pretty_price(info['final_price'])}")
+        
+        save_seats(service_key, seats)
+        print_success(f"✅ Enhanced bulk reservation completed! {successful_reservations} seats reserved")
+        print_success(f"💰 Total Revenue: {pretty_price(total_amount)}")
+        break
+
+# ------------------------
+# Consistent Back Button System
+# ------------------------
+
+def get_user_choice(prompt, valid_choices=None, allow_back=True):
+    """Universal function for consistent user input with back options"""
+    if allow_back:
+        prompt += " (or 'BACK' to go back)"
+    
+    while True:
+        choice = input(f"{Colors.YELLOW}{prompt}: {Colors.END}").strip().upper()
+        
+        if allow_back and choice == "BACK":
+            return "BACK"
+        
+        if valid_choices:
+            if choice in valid_choices:
+                return choice
+            else:
+                print_error(f"Invalid choice. Please choose from: {', '.join(valid_choices)}")
+        else:
+            return choice
+
+def confirm_action(prompt):
+    """Consistent confirmation with back option"""
+    while True:
+        response = input(f"{Colors.YELLOW}{prompt} (Y/N/B): {Colors.END}").strip().upper()
+        
+        if response == "B":
+            return "BACK"
+        elif response == "Y":
+            return True
+        elif response == "N":
+            return False
+        else:
+            print_warning("Please enter Y, N, or B")
+
+# ------------------------
 # Enhanced Core Functions
 # ------------------------
 
@@ -667,6 +916,8 @@ def confirm_booking_summary(service_key, seat_id, customer_data, ticket_type, fi
     print_header("="*60)
     
     confirm = input(f"{Colors.YELLOW}Confirm booking with verified identity? (Y to confirm, B to go back): {Colors.END}").strip().upper()
+    if confirm == "B":
+        return "BACK"
     return confirm == "Y"
 
 def reserve_seat(service_key):
@@ -706,7 +957,8 @@ def reserve_seat(service_key):
         base, final = compute_price(service_key, ticket_type)
 
         # Final confirmation with verified identity
-        if not confirm_booking_summary(service_key, seat_id, customer_data, ticket_type, final):
+        confirmation = confirm_booking_summary(service_key, seat_id, customer_data, ticket_type, final)
+        if confirmation == "BACK" or not confirmation:
             continue
 
         timestamp = now_str()
@@ -731,29 +983,13 @@ def reserve_seat(service_key):
         save_booking_history(service_key, seat_id, "VERIFIED_RESERVATION", 
                            f"{customer_data['full_name']} - {ticket_type} - {pretty_price(final)} - ID: {customer_data['id_type']}")
         
+        # Generate digital ticket
+        generate_digital_ticket(service_key, seat_id, customer_data, ticket_type, base, final)
+        
         print_success(f"✅ Verified reservation completed!")
         print_success(f"Seat {seat_id} reserved for {customer_data['full_name']}")
         print_success(f"Ticket Type: {ticket_type} | Final Price: {pretty_price(final)}")
         print_success(f"Government ID: {customer_data['id_type']} verified")
-
-        # Generate enhanced ticket CSV (without ID number)
-        service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
-        ticket_dir = "tickets"
-        os.makedirs(ticket_dir, exist_ok=True)
-        safe_name = safe_filename(customer_data['full_name'])
-        filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
-        filepath = os.path.join(ticket_dir, filename)
-        
-        with open(filepath, "w", newline="") as f:
-            writer = csv.writer(f)
-            # REMOVED: IDNumber from headers
-            writer.writerow(["Service", "Seat", "Passenger", "TicketType", "BasePrice", "FinalPrice", 
-                           "Timestamp", "Contact", "Address", "IDType", "VerifiedAt"])
-            writer.writerow([service_name, seat_id, customer_data['full_name'], ticket_type, 
-                           f"{base:.2f}", f"{final:.2f}", timestamp, customer_data['contact'], 
-                           customer_data['address'], customer_data['id_type'], customer_data['verified_at']])
-        
-        print_success(f"🎫 Verified ticket generated: {filepath}")
         break
 
 # ------------------------
@@ -839,11 +1075,12 @@ def get_contact_details():
     return validated_contact, address
 
 # ------------------------
-# Ticket CSV generation
+# Utility Functions
 # ------------------------
 
 def safe_filename(s):
-    return "".join(c for c in s if c.isalnum() or c in (' ', '', '-', '.')).strip().replace(" ", "")
+    """Create safe filenames"""
+    return "".join(c for c in s if c.isalnum() or c in (' ', '', '-', '.')).strip().replace(" ", "_")
 
 def generate_ticket_csv(service_key, seat_id, name, timestamp, ticket_type, base_price, final_price, contact="", address=""):
     service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
@@ -1123,7 +1360,7 @@ def update_reservation(service_key):
             break
             
         else:
-            print_error("Invalid option. Please try again.")
+            print_error("Invalid option.")
         
         # Ask if user wants to update another reservation
         again = input(f"\n{Colors.YELLOW}Update another reservation? (Y to continue, any other key to go back): {Colors.END}").strip().upper()
@@ -1470,43 +1707,106 @@ def show_system_statistics():
     input("Press Enter to continue...")
 
 # ------------------------
-# Enhanced Main Menu
+# Legacy Bulk Reservation
 # ------------------------
 
-def service_menu(service_key, service_name):
+def bulk_reserve(service_key):
+    """Legacy bulk reservation function"""
+    print_header("\n🔐 BULK RESERVATION WITH ID VERIFICATION")
+    print_warning("Each seat requires individual identity verification.")
+    
+    seats = load_seats(service_key)
+    available_seats = show_available_seats(service_key, seats)
+    
+    if not available_seats:
+        return
+    
     while True:
-        print_header(f"\n== {service_name} Menu ==")
-        print("1) View seat layout")
-        print("2) Reserve seat")
-        print("3) Cancel reservation")
-        print("4) Update seat booking")
-        print("5) View booking report")
-        print("6) Mark seat Unavailable / Reset seat")
-        print("7) View client ticket")
-        print("8) Bulk reserve")
-        print("B) Back to main menu")
-        choice = input("Choose option (or 'B' to go back): ").strip().upper()
-        if choice == "B":
-            break
-        if choice == "1":
-            seats = load_seats(service_key)
-            print_seat_map(service_key, seats)
-        elif choice == "2":
-            reserve_seat(service_key)
-        elif choice == "3":
-            cancel_reservation(service_key)
-        elif choice == "4":
-            update_reservation(service_key)
-        elif choice == "5":
-            view_report(service_key)
-        elif choice == "6":
-            set_unavailable(service_key)
-        elif choice == "7":
-            show_ticket(service_key)
-        elif choice == "8":
-            bulk_reserve(service_key)
-        else:
-            print_error("Invalid option.")
+        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip()
+        if raw_seats.upper() == "B":
+            return
+        
+        if not raw_seats:
+            print_warning("No seats entered.")
+            continue
+        
+        seat_ids = [normalize_seat_id_input(x.strip()) for x in raw_seats.split(",")]
+        invalid_seats = [s for s in seat_ids if s not in available_seats]
+        
+        if invalid_seats:
+            print_error(f"These seats are invalid or unavailable: {', '.join(invalid_seats)}")
+            continue
+        
+        # Verify identity once for all seats
+        customer_data = get_verified_personal_details()
+        if customer_data == "BACK":
+            continue
+        
+        # Select ticket type for all seats
+        ticket_type = choose_ticket_type_interactive(service_key)
+        if ticket_type == "BACK":
+            continue
+        
+        base, final = compute_price(service_key, ticket_type)
+        
+        # Confirm bulk booking
+        print_header(f"\n📋 BULK BOOKING SUMMARY - {len(seat_ids)} SEATS")
+        print(f"Client: {customer_data['full_name']}")
+        print(f"Seats: {', '.join(seat_ids)}")
+        print(f"Ticket Type: {ticket_type}")
+        print(f"Total Amount: {pretty_price(final * len(seat_ids))}")
+        
+        confirm = input(f"{Colors.YELLOW}Confirm bulk booking? (Y to confirm, B to go back): {Colors.END}").strip().upper()
+        if confirm == "B" or confirm != "Y":
+            continue
+        
+        # Process each seat
+        timestamp = now_str()
+        successful_reservations = 0
+        
+        for seat_id in seat_ids:
+            if seat_id in available_seats:  # Double-check availability
+                seats[seat_id] = {
+                    "Status": "Taken",
+                    "Name": customer_data['full_name'],
+                    "Timestamp": timestamp,
+                    "TicketType": ticket_type,
+                    "BasePrice": f"{base:.2f}",
+                    "FinalPrice": f"{final:.2f}",
+                    "Contact": customer_data['contact'],
+                    "Address": customer_data['address'],
+                    "IDType": customer_data['id_type'],
+                    "IDNumber": customer_data['id_number'],
+                    "VerifiedAt": customer_data['verified_at']
+                }
+                successful_reservations += 1
+                
+                # Generate individual ticket
+                service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
+                ticket_dir = "tickets"
+                os.makedirs(ticket_dir, exist_ok=True)
+                safe_name = safe_filename(customer_data['full_name'])
+                filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
+                filepath = os.path.join(ticket_dir, filename)
+                
+                with open(filepath, "w", newline="") as f:
+                    writer = csv.writer(f)
+                    writer.writerow(["Service", "Seat", "Passenger", "TicketType", "BasePrice", "FinalPrice", 
+                                   "Timestamp", "Contact", "Address", "IDType", "VerifiedAt"])
+                    writer.writerow([service_name, seat_id, customer_data['full_name'], ticket_type, 
+                                   f"{base:.2f}", f"{final:.2f}", timestamp, customer_data['contact'], 
+                                   customer_data['address'], customer_data['id_type'], customer_data['verified_at']])
+                
+                save_booking_history(service_key, seat_id, "BULK_RESERVATION", 
+                                   f"{customer_data['full_name']} - {ticket_type} - {pretty_price(final)}")
+        
+        save_seats(service_key, seats)
+        print_success(f"✅ Bulk reservation completed! {successful_reservations} seats reserved for {customer_data['full_name']}")
+        break
+
+# ------------------------
+# Seat Management
+# ------------------------
 
 def set_unavailable(service_key):
     while True:
@@ -1689,152 +1989,49 @@ def set_unavailable(service_key):
         if again != "Y":
             break
 
-def bulk_reserve(service_key):
-    """Bulk reservation function"""
-    print_header("\n🔐 BULK RESERVATION WITH ID VERIFICATION")
-    print_warning("Each seat requires individual identity verification.")
-    
-    seats = load_seats(service_key)
-    available_seats = show_available_seats(service_key, seats)
-    
-    if not available_seats:
-        return
-    
-    while True:
-        raw_seats = input("Enter seat IDs to reserve (comma-separated, e.g. 1A,1B,1C, or 'B' to go back): ").strip()
-        if raw_seats.upper() == "B":
-            return
-        
-        if not raw_seats:
-            print_warning("No seats entered.")
-            continue
-        
-        seat_ids = [normalize_seat_id_input(x.strip()) for x in raw_seats.split(",")]
-        invalid_seats = [s for s in seat_ids if s not in available_seats]
-        
-        if invalid_seats:
-            print_error(f"These seats are invalid or unavailable: {', '.join(invalid_seats)}")
-            continue
-        
-        # Verify identity once for all seats
-        customer_data = get_verified_personal_details()
-        if customer_data == "BACK":
-            continue
-        
-        # Select ticket type for all seats
-        ticket_type = choose_ticket_type_interactive(service_key)
-        if ticket_type == "BACK":
-            continue
-        
-        base, final = compute_price(service_key, ticket_type)
-        
-        # Confirm bulk booking
-        print_header(f"\n📋 BULK BOOKING SUMMARY - {len(seat_ids)} SEATS")
-        print(f"Client: {customer_data['full_name']}")
-        print(f"Seats: {', '.join(seat_ids)}")
-        print(f"Ticket Type: {ticket_type}")
-        print(f"Total Amount: {pretty_price(final * len(seat_ids))}")
-        
-        confirm = input(f"{Colors.YELLOW}Confirm bulk booking? (Y to confirm, B to go back): {Colors.END}").strip().upper()
-        if confirm != "Y":
-            continue
-        
-        # Process each seat
-        timestamp = now_str()
-        successful_reservations = 0
-        
-        for seat_id in seat_ids:
-            if seat_id in available_seats:  # Double-check availability
-                seats[seat_id] = {
-                    "Status": "Taken",
-                    "Name": customer_data['full_name'],
-                    "Timestamp": timestamp,
-                    "TicketType": ticket_type,
-                    "BasePrice": f"{base:.2f}",
-                    "FinalPrice": f"{final:.2f}",
-                    "Contact": customer_data['contact'],
-                    "Address": customer_data['address'],
-                    "IDType": customer_data['id_type'],
-                    "IDNumber": customer_data['id_number'],
-                    "VerifiedAt": customer_data['verified_at']
-                }
-                successful_reservations += 1
-                
-                # Generate individual ticket
-                service_name = {"C": "Cinema", "B": "Bus", "A": "Airplane"}.get(service_key, "Unknown")
-                ticket_dir = "tickets"
-                os.makedirs(ticket_dir, exist_ok=True)
-                safe_name = safe_filename(customer_data['full_name'])
-                filename = f"ticket_{service_name.lower()}_{seat_id}_{safe_name}.csv"
-                filepath = os.path.join(ticket_dir, filename)
-                
-                with open(filepath, "w", newline="") as f:
-                    writer = csv.writer(f)
-                    writer.writerow(["Service", "Seat", "Passenger", "TicketType", "BasePrice", "FinalPrice", 
-                                   "Timestamp", "Contact", "Address", "IDType", "VerifiedAt"])
-                    writer.writerow([service_name, seat_id, customer_data['full_name'], ticket_type, 
-                                   f"{base:.2f}", f"{final:.2f}", timestamp, customer_data['contact'], 
-                                   customer_data['address'], customer_data['id_type'], customer_data['verified_at']])
-                
-                save_booking_history(service_key, seat_id, "BULK_RESERVATION", 
-                                   f"{customer_data['full_name']} - {ticket_type} - {pretty_price(final)}")
-        
-        save_seats(service_key, seats)
-        print_success(f"✅ Bulk reservation completed! {successful_reservations} seats reserved for {customer_data['full_name']}")
-        break
+# ------------------------
+# Enhanced Main Menu
+# ------------------------
 
-def enhanced_main_menu():
-    for k in DATA_FILES:
-        ensure_csv(k)
-    
-    # Auto-check for expired bookings on startup
-    print_info("Checking for expired bookings...")
-    expired_total = 0
-    for service_key in DATA_FILES:
-        expired = check_booking_timeout(service_key)
-        expired_total += expired
-    
-    if expired_total > 0:
-        print_warning(f"Auto-cancelled {expired_total} expired bookings on startup.")
-    
+def service_menu(service_key, service_name):
     while True:
-        # Show quick stats
-        total_bookings = 0
-        for service_key in DATA_FILES:
-            seats = load_seats(service_key)
-            taken_seats = sum(1 for info in seats.values() if info["Status"] == "Taken")
-            total_bookings += taken_seats
+        print_header(f"\n== {service_name} Menu ==")
+        print("1) View seat layout")
+        print("2) Reserve seat")
+        print("3) Enhanced Bulk Reserve")  # ENHANCED OPTION
+        print("4) Cancel reservation")
+        print("5) Update seat booking")
+        print("6) View booking report")
+        print("7) Mark seat Unavailable / Reset seat")
+        print("8) View client ticket")
+        print("9) Bulk reserve (Legacy)")
+        print("BACK) Back to main menu")
         
-        print_header("\n" + "="*50)
-        print_header("🎟️  TICKETING SYSTEM - DASHBOARD")
-        print_header("="*50)
-        print(f"{Colors.BLUE}📈 Active Bookings: {total_bookings}{Colors.END}")
-        print_header("="*50)
-        print("1) 🎥 Cinema Booking")
-        print("2) 🚌 Bus Booking") 
-        print("3) ✈️ Airplane Booking")
-        print("4) 📊 System Reports")
-        print("5) ⚙️ System Settings")
-        print("X) Exit System")
-        print_header("="*50)
-        
-        choice = input("Select option: ").strip().upper()
-        
-        if choice == "1":
-            service_menu("C", "Cinema")
-        elif choice == "2":
-            service_menu("B", "Bus")
-        elif choice == "3":
-            service_menu("A", "Airplane")
-        elif choice == "4":
-            show_system_reports()
-        elif choice == "5":
-            system_settings()
-        elif choice == "X":
-            print_success("Goodbye!")
+        choice = get_user_choice("Choose option", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "BACK"])
+
+        if choice == "BACK":
             break
+        if choice == "1":
+            seats = load_seats(service_key)
+            print_seat_map(service_key, seats)
+        elif choice == "2":
+            reserve_seat(service_key)
+        elif choice == "3":  # ENHANCED BULK RESERVE
+            bulk_reserve_enhanced(service_key)
+        elif choice == "4":
+            cancel_reservation(service_key)
+        elif choice == "5":
+            update_reservation(service_key)
+        elif choice == "6":
+            view_report(service_key)
+        elif choice == "7":
+            set_unavailable(service_key)
+        elif choice == "8":
+            show_ticket(service_key)
+        elif choice == "9":
+            bulk_reserve(service_key)  # Legacy bulk reserve
         else:
-            print_error("Invalid input.")
+            print_error("Invalid option.")
 
 def show_system_reports():
     while True:
@@ -1887,6 +2084,59 @@ def show_combined_revenue():
     print(f"{Colors.BOLD}Total Revenue:{Colors.END} {pretty_price(total_revenue)}")
     print("=" * 60)
     input("Press Enter to continue...")
+
+def enhanced_main_menu():
+    for k in DATA_FILES:
+        ensure_csv(k)
+    
+    # Auto-check for expired bookings on startup
+    print_info("Checking for expired bookings...")
+    expired_total = 0
+    for service_key in DATA_FILES:
+        expired = check_booking_timeout(service_key)
+        expired_total += expired
+    
+    if expired_total > 0:
+        print_warning(f"Auto-cancelled {expired_total} expired bookings on startup.")
+    
+    while True:
+        # Show quick stats
+        total_bookings = 0
+        for service_key in DATA_FILES:
+            seats = load_seats(service_key)
+            taken_seats = sum(1 for info in seats.values() if info["Status"] == "Taken")
+            total_bookings += taken_seats
+        
+        print_header("\n" + "="*50)
+        print_header("🎟️ ENHANCED TICKETING SYSTEM - DASHBOARD")
+        print_header("="*50)
+        print(f"{Colors.BLUE}📈 Active Bookings: {total_bookings}{Colors.END}")
+        print_header("="*50)
+        print("1) 🎥 Cinema Booking")
+        print("2) 🚌 Bus Booking") 
+        print("3) ✈️ Airplane Booking")
+        print("4) 📊 System Reports")
+        print("5) ⚙️ System Settings")
+        print("BACK) Exit System")
+        print_header("="*50)
+        
+        choice = get_user_choice("Select option", ["1", "2", "3", "4", "5", "BACK"])
+        
+        if choice == "1":
+            service_menu("C", "Cinema")
+        elif choice == "2":
+            service_menu("B", "Bus")
+        elif choice == "3":
+            service_menu("A", "Airplane")
+        elif choice == "4":
+            show_system_reports()
+        elif choice == "5":
+            system_settings()
+        elif choice == "BACK":
+            print_success("Goodbye!")
+            break
+        else:
+            print_error("Invalid input.")
 
 if __name__ == "__main__":
     enhanced_main_menu()
