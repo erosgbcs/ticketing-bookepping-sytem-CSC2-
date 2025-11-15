@@ -1998,13 +1998,13 @@ def service_menu(service_key, service_name):
         print_header(f"\n== {service_name} Menu ==")
         print("1) View seat layout")
         print("2) Reserve seat")
-        print("3) Enhanced Bulk Reserve")  # ENHANCED OPTION
+        print("3) Bulk Reserve")  # ENHANCED OPTION
         print("4) Cancel reservation")
         print("5) Update seat booking")
         print("6) View booking report")
         print("7) Mark seat Unavailable / Reset seat")
         print("8) View client ticket")
-        print("9) Bulk reserve (Legacy)")
+        print("9) Bulk reserve ")
         print("BACK) Back to main menu")
         
         choice = get_user_choice("Choose option", ["1", "2", "3", "4", "5", "6", "7", "8", "9", "BACK"])
