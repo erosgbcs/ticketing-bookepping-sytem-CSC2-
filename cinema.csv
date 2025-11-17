@@ -1,5 +1,5 @@
 Seat,Status,Name,Timestamp,TicketType,BasePrice,FinalPrice,Contact,Address,IDType,IDNumber,VerifiedAt
-1A,Taken,Gab M. Agsamosam,2025-11-15 11:56:19,Regular,150.00,150.00,12345678901,"fhdsfh, hbghfbv, Gsdhff, Besdhfe 1234",SSS ID,1234567890,2025-11-15 11:56:14
+1A,Available,,,,,,,,,,
 1B,Available,,,,,,,,,,
 1C,Available,,,,,,,,,,
 1D,Available,,,,,,,,,,
